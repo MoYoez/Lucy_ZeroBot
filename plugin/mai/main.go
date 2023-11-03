@@ -176,7 +176,7 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ERR: ", err))
 			return
 		}
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("来试试~ "+SongDataRandomTools[rand.Intn(len(SongDataRandomTools))].BasicInfo.Title+" 吧~\n"))
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("来试试~ "+SongDataRandomTools[rand.Intn(len(SongDataRandomTools))].BasicInfo.Title+" 吧~"))
 	})
 	// TODO: 查歌.
 }
