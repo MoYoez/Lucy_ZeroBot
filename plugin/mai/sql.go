@@ -8,6 +8,11 @@ import (
 	sql "github.com/FloatTech/sqlite"
 )
 
+type UserIDToQQ struct {
+	QQ     int64  `db:"user_qq"` // qq nums
+	Userid string `db:"user_id"` // user_id
+}
+
 type DataHostSQL struct {
 	QQ         int64  `db:"user_qq"` // qq nums
 	Plate      string `db:"plate"`   // plate
@@ -25,18 +30,42 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	_ = InitDataBase()
+	InitDataBase()
 }
 
 func FormatUserDataBase(qq int64, plate string, bg string) *DataHostSQL {
 	return &DataHostSQL{QQ: qq, Plate: plate, Background: bg}
 }
 
+func FormatUserIDDatabase(qq int64, userid string) *UserIDToQQ {
+	return &UserIDToQQ{QQ: qq, Userid: userid}
+}
+
 func InitDataBase() error {
 	maiLocker.Lock()
 	defer maiLocker.Unlock()
-	return maiDatabase.Create("userinfo", &DataHostSQL{})
+	maiDatabase.Create("userinfo", &DataHostSQL{})
+	maiDatabase.Create("useridinfo", &UserIDToQQ{})
+	return nil
 }
+
+// GetUserIDFromDatabase Params: user qq id ==> user maimai id.
+func GetUserIDFromDatabase(userID int64) UserIDToQQ {
+	maiLocker.Lock()
+	defer maiLocker.Unlock()
+	var infosql UserIDToQQ
+	userIDStr := strconv.FormatInt(userID, 10)
+	_ = maiDatabase.Find("useridinfo", &infosql, "where user_qq is "+userIDStr)
+	return infosql
+}
+
+func (info *UserIDToQQ) BindUserIDDataBase() error {
+	maiLocker.Lock()
+	defer maiLocker.Unlock()
+	return maiDatabase.Insert("useridinfo", info)
+}
+
+// maimai render b50
 
 func GetUserInfoFromDatabase(userID int64) string {
 	maiLocker.Lock()
