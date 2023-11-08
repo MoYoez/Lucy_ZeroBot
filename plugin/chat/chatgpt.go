@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/FloatTech/zbputils/img/text"
-	"github.com/wdvxdr1123/ZeroBot/extension/rate"
-	"github.com/wdvxdr1123/ZeroBot/utils/helper"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/FloatTech/zbputils/img/text"
+	"github.com/wdvxdr1123/ZeroBot/extension/rate"
+	"github.com/wdvxdr1123/ZeroBot/utils/helper"
 
 	"github.com/FloatTech/ttl"
 
@@ -102,7 +103,7 @@ func completions(messages []chatMessage, apiKey string) (*chatGPTResponseBody, e
 func init() {
 	// easy and work well with chatgpt? key handler.
 	// trigger for chatgpt.
-	engine.OnRegex(`^/chat\s*(.*)$`, zero.OnlyToMe).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	engine.OnRegex(`^/chat\s*(.*)`, zero.OnlyToMe).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		if !GPTPromptHandlerLimitedTimeManager.Load(ctx.Event.GroupID).Acquire() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Too quick! 慢一点再请求哦！"))
 			return
@@ -122,10 +123,10 @@ func init() {
 			Role:    "user",
 			Content: args,
 		})
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("msg received, handling..."))
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("收到信息了哦~大概需要等一下w..."))
 		resp, err := completions(messages, os.Getenv("gptkey"))
 		if err != nil {
-			ctx.SendChain(message.Text("Some errors occurred when requesting :( : ", err))
+			ctx.SendChain(message.Text("出现了一些问题:( : ", err))
 			return
 		}
 		reply := resp.Choices[0].Message

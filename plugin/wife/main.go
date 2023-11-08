@@ -95,7 +95,6 @@ func init() {
 			choice = ctx.State["regex_matched"].([]string)[6]
 			getid := SearchUserReferName(ctx.Event.UserID, ctx.State["regex_matched"].([]string)[7])
 			if getid == 0 {
-				ctx.SendChain(message.Text("找不到对应用户x"))
 				return
 			}
 			fiancee = getid
@@ -105,6 +104,10 @@ func init() {
 			// do split to text
 			getSlice := strings.Split(getFullRegexIndex, " ")
 			getAdditonName := getSlice[1]
+			if strings.Contains(getAdditonName, "[CQ") {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("嗯哼 咱知道你在做什么哦"))
+				return
+			}
 			if getAdditonName != "" {
 				// save it to data.
 				if getAdditonName == "Lucy" || getAdditonName == "群友" {
@@ -334,67 +337,38 @@ func init() {
 			_ = InsertUserGlobalMarryList(marryList, ctx.Event.GroupID, ctx.Event.UserID, ctx.Event.UserID, 6, generatePairKey)
 		}
 	})
+	engine.OnFullMatch("离婚", zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
+		getStatusCode, _ := CheckTheUserIsTargetOrUser(marryList, ctx, ctx.Event.UserID)
+		if getStatusCode == -1 {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似？没有对象的样子x"))
+			return
+		}
+		if LeaveCDModelCostLeastReply(ctx) == 0 {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("今天的次数已经用完了哦～或许可以试一下别的方式？"))
+			return
+		}
+		reverseCheckTheUserIsDisabled := CheckDisabledListIsExistedInThisGroup(marryList, ctx.Event.UserID, ctx.Event.GroupID)
+		if !reverseCheckTheUserIsDisabled {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("你已经禁用了被随机，所以不可以参与娶群友哦w"))
+			return
+		}
+		getlostSuccessedMsg := dict["lost_success"][rand.Intn(len(dict["lost_success"]))]
+		getLostFailedMsg := dict["lost_failed"][rand.Intn(len(dict["lost_failed"]))]
+		if rand.Intn(4) >= 2 {
+			LeaveCDModelCost(ctx)
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getLostFailedMsg))
+		} else {
+			LeaveCDModelCost(ctx)
+			getPairKey := CheckThePairKey(marryList, ctx.Event.UserID, ctx.Event.GroupID)
+			RemoveUserGlobalMarryList(marryList, getPairKey, ctx.Event.GroupID)
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getlostSuccessedMsg))
+		}
+	})
 
-	engine.OnFullMatch("我要离婚", zero.OnlyToMe, zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
-		getStatusCode, _ := CheckTheUserIsTargetOrUser(marryList, ctx, ctx.Event.UserID)
-		if getStatusCode == -1 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似？没有对象的样子x"))
-			return
-		}
-		if LeaveCDModelCostLeastReply(ctx) == 0 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("今天的次数已经用完了哦～或许可以试一下别的方式？"))
-			return
-		}
-		reverseCheckTheUserIsDisabled := CheckDisabledListIsExistedInThisGroup(marryList, ctx.Event.UserID, ctx.Event.GroupID)
-		if !reverseCheckTheUserIsDisabled {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("你已经禁用了被随机，所以不可以参与娶群友哦w"))
-			return
-		}
-		getlostSuccessedMsg := dict["lost_success"][rand.Intn(len(dict["lost_success"]))]
-		getLostFailedMsg := dict["lost_failed"][rand.Intn(len(dict["lost_failed"]))]
-		if rand.Intn(4) >= 2 {
-			LeaveCDModelCost(ctx)
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getLostFailedMsg))
-		} else {
-			LeaveCDModelCost(ctx)
-			getPairKey := CheckThePairKey(marryList, ctx.Event.UserID, ctx.Event.GroupID)
-			RemoveUserGlobalMarryList(marryList, getPairKey, ctx.Event.GroupID)
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getlostSuccessedMsg))
-		}
-	})
-	engine.OnFullMatch("离婚",  zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
-		getStatusCode, _ := CheckTheUserIsTargetOrUser(marryList, ctx, ctx.Event.UserID)
-		if getStatusCode == -1 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似？没有对象的样子x"))
-			return
-		}
-		if LeaveCDModelCostLeastReply(ctx) == 0 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("今天的次数已经用完了哦～或许可以试一下别的方式？"))
-			return
-		}
-		reverseCheckTheUserIsDisabled := CheckDisabledListIsExistedInThisGroup(marryList, ctx.Event.UserID, ctx.Event.GroupID)
-		if !reverseCheckTheUserIsDisabled {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("你已经禁用了被随机，所以不可以参与娶群友哦w"))
-			return
-		}
-		getlostSuccessedMsg := dict["lost_success"][rand.Intn(len(dict["lost_success"]))]
-		getLostFailedMsg := dict["lost_failed"][rand.Intn(len(dict["lost_failed"]))]
-		if rand.Intn(4) >= 2 {
-			LeaveCDModelCost(ctx)
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getLostFailedMsg))
-		} else {
-			LeaveCDModelCost(ctx)
-			getPairKey := CheckThePairKey(marryList, ctx.Event.UserID, ctx.Event.GroupID)
-			RemoveUserGlobalMarryList(marryList, getPairKey, ctx.Event.GroupID)
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getlostSuccessedMsg))
-		}
-	})
-	
 	engine.OnRegex(`^骗(\[CQ:at,qq=(\d+)\]\s?|(\d+))`, zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
 		fid := ctx.State["regex_matched"].([]string)
 		fiancee, _ := strconv.ParseInt(fid[2]+fid[3], 10, 64)
 		if fiancee == 0 || ctx.Event.UserID == 0 {
-			ctx.SendChain(message.Reply(ctx.Event.UserID), message.Text("用户不合法"))
 			return
 		}
 		uid := ctx.Event.UserID

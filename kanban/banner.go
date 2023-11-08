@@ -11,7 +11,7 @@ var (
 		"* Made By MoeMagicMango and FloatTech Project With ❤",
 		"* Project: https://github.com/FloatTech/ZeroBot-Plugin",
 		"* 说明书: https://lucy.impart.icu",
-		"* 认领: https://moe.himoyo.cn/archives/110/",
+		"* 认领: https://lemonkoi.one/archives/110/",
 		"* Copyright © 2021-2023 FloatTech. All Rights Reserved.",
 	}
 	// Banner ...

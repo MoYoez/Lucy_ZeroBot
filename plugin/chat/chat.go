@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FloatTech/floatbox/process"
@@ -35,6 +36,7 @@ func init() { // 插件主体
 			ctx.Send(message.Text("这些名字可不好哦(敲)"))
 			return
 		}
+
 		if texts == "" {
 			ctx.Send(message.Text("好哦~ 那~咱该叫你什么呢ww"))
 			nextstep := ctx.FutureEvent("message", ctx.CheckSession())
@@ -45,6 +47,10 @@ func init() { // 插件主体
 					cancel()
 				}
 			}
+		}
+		if strings.Contains(texts, "[CQ") {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("嗯哼 咱知道你在做什么哦"))
+			return
 		}
 		userID := strconv.FormatInt(ctx.Event.UserID, 10)
 		err := name.StoreUserNickname(userID, texts)
