@@ -38,7 +38,7 @@ func QueryMaiBotDataFromQQ(qq int) (playerdata []byte, err error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 400 {
-		return nil, errors.New("- 未找到用户或者用户数据丢失\n\n - 请检查您是否在 https://www.diving-fish.com/maimaidx/prober/ 上 上传过成绩并且有绑定QQ号 \n\n- 指令为!mai 而不是！mai b50 \n- 上传成绩可通过 https://maimai.bakapiano.com 上传")
+		return nil, errors.New("- 未找到用户或者用户数据丢失\n\n - 请检查您是否在 https://www.diving-fish.com/maimaidx/prober/ 上 上传过成绩并且有绑定QQ号 \n\n- 指令为!mai 而不是！mai b50 \n - 上传成绩可通过 https://maimai.bakapiano.com 上传")
 	}
 	if resp.StatusCode == 403 {
 		return nil, errors.New("- 该用户设置禁止查分\n\n - 请检查您是否在 https://www.diving-fish.com/maimaidx/prober/ 上 是否关闭了允许他人查分功能")

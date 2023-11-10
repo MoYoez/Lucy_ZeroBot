@@ -190,7 +190,7 @@ func init() { // 插件主体
 			ctx.SetGroupBan(
 				ctx.Event.GroupID,
 				math.Str2Int64(ctx.State["regex_matched"].([]string)[1]), // 要禁言的人的qq
-				duration*60, // 要禁言的时间（分钟）
+				duration*60,                                              // 要禁言的时间（分钟）
 			)
 			ctx.SendChain(message.Text("小黑屋收留成功~"))
 		})
@@ -280,6 +280,35 @@ func init() { // 插件主体
 			ctx.SendChain(message.Text("a 貌似出现了一些问题哦~ 或许再试一下呢x"))
 		}
 	})
+	engine.OnRegex(`^[！!]admin\s(up|down).*?(\d+)]`, zero.OnlyGroup).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		getUID := ctx.State["regex_matched"].([]string)[2]
+		getStatus := ctx.State["regex_matched"].([]string)[1]
+
+		getGroupId := strconv.FormatInt(ctx.Event.GroupID, 10)
+		getEventUserID := ctx.Event.UserID
+		if getGroupId != "1019276136" {
+			return
+		}
+		if getEventUserID != 974599965 && getEventUserID != 724632894 {
+			return
+		}
+		// call action
+		// this method cation was called by my own account, so maybe not work(.
+		getTitleModified := url.QueryEscape(getStatus)
+		switch {
+		case getTitleModified == "up":
+			getTitleModified = "true"
+		case getTitleModified == "down":
+			getTitleModified = "false"
+		default:
+			getTitleModified = "false"
+		}
+
+		_, _ = web.GetData("http://localhost:1380/set_group_admin?group_id=" + getGroupId + "&user_id=" + getUID + "&enable=" + getTitleModified)
+		ctx.SendChain(message.Text("已完成~"))
+
+	})
+
 	// 随机点名
 	engine.OnFullMatchGroup([]string{"翻牌"}, zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
