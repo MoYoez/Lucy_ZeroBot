@@ -69,12 +69,16 @@ func init() {
 		}).Data.String()
 		sender := gjson.Get(rsp, "sender.user_id").Int()
 		re := regexp.MustCompile(`\[CQ:image.*?\]`)
+		modifiedReplyHeader := regexp.MustCompile(`\[CQ:reply.*?\]`)
 		if len(getSplit) == 2 {
 			getSplit[0] = re.ReplaceAllString(getSplit[0], "")
+			getSplit[0] = modifiedReplyHeader.ReplaceAllString(getSplit[0],"")
 			getSplit[1] = re.ReplaceAllString(getSplit[1], "")
+			getSplit[1] = modifiedReplyHeader.ReplaceAllString(getSplit[1],"")
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(ctx.CardOrNickName(ctx.Event.UserID)+" "+getSplit[0]+"了 "+ctx.CardOrNickName(sender)+" "+getSplit[1]))
 		} else {
 			getSplit[0] = re.ReplaceAllString(getSplit[0], "")
+			getSplit[0] = modifiedReplyHeader.ReplaceAllString(getSplit[0],"")
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(ctx.CardOrNickName(ctx.Event.UserID)+" "+getPatternInfo+"了 "+ctx.CardOrNickName(sender)))
 		}
 	})
