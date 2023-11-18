@@ -2,21 +2,22 @@ package quote
 
 import (
 	"fmt"
+	"hash/crc64"
+	"regexp"
+	"strconv"
+	"time"
+
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
 	"github.com/wdvxdr1123/ZeroBot/utils/helper"
-	"hash/crc64"
-	"regexp"
-	"strconv"
-	"time"
 )
 
 var engine = control.Register("quote", &ctrl.Options[*zero.Ctx]{
 	DisableOnDefault:  false,
-	Help:              "Make A Quote! 记录群友发言\n说明书: https://lucy.impart.icu",
+	Help:              "Make A Quote! 记录群友发言",
 	PrivateDataFolder: "quote",
 })
 

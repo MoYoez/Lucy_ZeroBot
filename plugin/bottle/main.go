@@ -35,7 +35,7 @@ var seaLocker sync.RWMutex
 func init() {
 	engine := control.Register("bottle", &ctrl.Options[*zero.Ctx]{
 		DisableOnDefault:  false,
-		Help:              "基于driftbottle的魔改版漂流瓶\n说明书: https://lucy.impart.icu",
+		Help:              "基于driftbottle的魔改版漂流瓶",
 		PrivateDataFolder: "bottle",
 	})
 	seaSide.DBPath = engine.DataFolder() + "sea.db"

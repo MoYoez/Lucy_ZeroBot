@@ -22,7 +22,7 @@ var (
 	MessageTickerLimiter = rate.NewManager[int64](time.Minute*1, 2)
 	engine               = control.Register("wife", &ctrl.Options[*zero.Ctx]{
 		DisableOnDefault:  false,
-		Help:              "Hi NekoPachi!\n说明书: https://lucy.impart.icu",
+		Help:              "Hi NekoPachi!",
 		PrivateDataFolder: "wife",
 	}).ApplySingle(ReverseSingle)
 	ReverseSingle = single.New(

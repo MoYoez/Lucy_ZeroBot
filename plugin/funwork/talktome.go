@@ -18,13 +18,13 @@ import (
 
 const (
 	ua      = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.0.0 Safari/537.36"
-	Referer = "https://lucy.impart.icu/" // Referer For bypass fucking link.
+	Referer = "https://lucy.lemonkoi.one/" // Referer For bypass fucking link.
 )
 
 var (
 	engine = control.Register("funwork", &ctrl.Options[*zero.Ctx]{
 		DisableOnDefault:  false,
-		Help:              "Hi NekoPachi!\n说明书: https://lucy.impart.icu",
+		Help:              "Hi NekoPachi!\n说明书: https://lucy.lemonkoi.one",
 		PrivateDataFolder: "funwork",
 	})
 )

@@ -90,7 +90,7 @@ func init() {
 }
 
 func main() {
-	zero.OnFullMatchGroup([]string{".help", "帮助", "/help"}, zero.OnlyToMe).SetBlock(true).
+	zero.OnFullMatchGroup([]string{".help", "/help"}).SetBlock(true).
 		Handle(func(ctx *zero.Ctx) {
 			ctx.SendChain(message.Text(kanban.Banner))
 		})

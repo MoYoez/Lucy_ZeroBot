@@ -66,7 +66,7 @@ var (
 		Help:              "Hi NekoPachi!\n",
 		PrivateDataFolder: "phi",
 	})
-	router = "https://pgrapi.impart.icu"
+	router = "phi-backend.lemonkoi.one"
 )
 
 func init() {
@@ -80,7 +80,7 @@ func init() {
 		indexReply := DecHashToRaw(hash)
 		// get session.
 		if indexReply == "" {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://pgr.impart.icu 获取绑定码进行绑定"))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://phi.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
 		getQQID, getSessionID := RawJsonParse(indexReply)
@@ -99,7 +99,7 @@ func init() {
 		data := GetUserInfoFromDatabase(ctx.Event.UserID)
 		getDataSession := data.PhiSession
 		if getDataSession == "" {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://pgr.impart.icu 获取绑定码进行绑定 "))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://phi.lemonkoi.one 获取绑定码进行绑定 "))
 			return
 		}
 		userData := GetUserInfoFromDatabase(ctx.Event.UserID)
@@ -215,7 +215,7 @@ func init() {
 		data := GetUserInfoFromDatabase(ctx.Event.UserID)
 		getDataSession := data.PhiSession
 		if getDataSession == "" {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("由于Session特殊性，请前往 https://pgr.impart.icu 获取绑定码进行绑定"))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("由于Session特殊性，请前往 https://phi.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
 		// getPhigrosKey := os.Getenv("puakey")
