@@ -168,10 +168,6 @@ func init() { // 插件主体
 		Handle(func(ctx *zero.Ctx) {
 			ctx.SendChain(randImage("SNDNYSG004[GH[E%$PJ~VCT.jpg", "55D0B4A5E335FE55A924E71469F35AC7.png", "file_3492326.jpg"))
 		})
-	engine.OnFullMatchGroup([]string{"认领"}, zero.OnlyToMe).SetBlock(true).
-		Handle(func(ctx *zero.Ctx) {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("认领说明: https://moe.himoyo.cn/archives/110/"))
-		})
 }
 
 // RandText 随机文本
