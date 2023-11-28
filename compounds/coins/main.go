@@ -31,8 +31,8 @@ type Signintable struct {
 
 // Globaltable 总体结构体
 type Globaltable struct {
-	Counttime int `gorm:"column:counttime;default:0"`
-	Times     string
+	Counttime int    `gorm:"column:counttime;default:0"`
+	Times     string `gorm:"column:times;primary_key"`
 }
 
 // WagerTable wager Table Struct

@@ -122,6 +122,7 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.UserID), message.Text("用户不合法"))
 			return
 		}
+
 		uid := ctx.Event.UserID
 		if !CheckDisabledListIsExistedInThisGroup(marryList, uid, ctx.Event.GroupID) {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("你已经禁用了被随机，所以不可以参与娶群友哦w"))

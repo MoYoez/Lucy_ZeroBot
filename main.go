@@ -36,7 +36,7 @@ import (
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/chan"  // chan plugin
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/slash" // slash plugin
 
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/simai" // simia plugin
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/simai" // simai plugin should be the last it will cause command block.
 
 	"github.com/FloatTech/floatbox/process"
 	zero "github.com/wdvxdr1123/ZeroBot"

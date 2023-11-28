@@ -28,27 +28,30 @@ var (
 		Help:              "Hi NekoPachi!",
 		PrivateDataFolder: "score",
 	})
+	mutex sync.Mutex // 添加读写锁以保证稳定性
 )
 
 func init() {
 	cachePath := engine.DataFolder() + "scorecache/"
 	sdb := coins.Initialize("./data/score/score.db")
 	ctxext.SetDefaultLimiterManagerParam(time.Second*10, 2)
+
 	engine.OnFullMatchGroup([]string{"签到", "打卡"}, zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
-			var mutex sync.Mutex // 添加读写锁以保证稳定性
+			mutex.Lock()
+			defer mutex.Unlock()
 			uid := ctx.Event.UserID
 			// save time data by add 30mins (database save it, not to handle it when it gets ready.)
 			// just handle data time when it on,make sure to decrease 30 mins when render the page(
 
 			// not sure what happened
 			getNowUnixFormatElevenThirten := time.Now().Add(time.Minute * 30).Format("20060102")
-			//	today := time.Now().Format("20060102")
-			mutex.Lock()
+
 			si := coins.GetSignInByUID(sdb, uid)
-			mutex.Unlock()
+
 			// in case
 			drawedFile := cachePath + strconv.FormatInt(uid, 10) + getNowUnixFormatElevenThirten + "signin.png"
+
 			if si.UpdatedAt.Add(time.Minute*30).Format("20060102") == getNowUnixFormatElevenThirten && si.Count != 0 {
 				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("w~ 你今天已经签到过了哦w"))
 				if file.IsExist(drawedFile) {
@@ -56,8 +59,8 @@ func init() {
 				}
 				return
 			}
+
 			coinsGet := 300 + rand.Intn(200)
-			mutex.Lock()
 
 			_ = coins.InsertUserCoins(sdb, uid, si.Coins+coinsGet)
 			_ = coins.InsertOrUpdateSignInCountByUID(sdb, uid, si.Count+1) // 柠檬片获取
@@ -68,8 +71,6 @@ func init() {
 			handledTodayNum := CurrentCountTable.Counttime + 1
 			_ = coins.UpdateUserTime(sdb, handledTodayNum, getNowUnixFormatElevenThirten)
 
-			mutex.Unlock()
-			time.Sleep(3 * time.Second) // wait three second
 			if time.Now().Hour() > 6 && time.Now().Hour() < 19 {
 				// package for test draw.
 				getTimeReplyMsg := coins.GetHourWord(time.Now()) // get time and msg
