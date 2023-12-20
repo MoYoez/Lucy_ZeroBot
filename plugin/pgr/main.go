@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/FloatTech/floatbox/web"
+	"github.com/FloatTech/zbputils/ctxext"
 	"github.com/tidwall/gjson"
 
 	"github.com/FloatTech/floatbox/file"
@@ -200,7 +201,7 @@ func init() {
 		_ = getMainBgRender.SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image("file:///"+file.BOTPATH+"/"+engine.DataFolder()+"save/"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
 	})
-	engine.OnRegex(`^[! ！/]pgr\sroll\s(\d+)`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+	engine.OnRegex(`^[! ！/]pgr\sroll\s(\d+)`).SetBlock(true).Limit(ctxext.LimitByGroup).Handle(func(ctx *zero.Ctx) {
 		var wg sync.WaitGroup
 		var avatarWaitGroup sync.WaitGroup
 		var dataWaiter sync.WaitGroup
