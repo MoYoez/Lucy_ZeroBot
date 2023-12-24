@@ -219,7 +219,6 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("由于Session特殊性，请前往 https://phi.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
-		// getPhigrosKey := os.Getenv("puakey")
 		userData := GetUserInfoFromDatabase(ctx.Event.UserID)
 		getRoll := ctx.State["regex_matched"].([]string)[1]
 		getRollInt, err := strconv.ParseInt(getRoll, 10, 64)
@@ -268,7 +267,7 @@ func init() {
 			// draw Avatar, avatar from qq.
 			avatarByte, err := http.Get("https://q4.qlogo.cn/g?b=qq&nk=" + strconv.FormatInt(ctx.Event.UserID, 10) + "&s=640")
 			if err != nil {
-				ctx.SendChain(message.Text("Something wrong while rendering pic? avatar IO err."))
+				// pic lost.
 				return
 			}
 			// avatar

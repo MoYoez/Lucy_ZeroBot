@@ -3,7 +3,6 @@ package mai
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"image"
 	"math/rand"
 	rand2 "math/rand"
@@ -195,7 +194,6 @@ func init() {
 		}
 		// check id
 		getID := GetUserMaiUserid(getSessionID)
-		fmt.Print(getID)
 		if getID == -1 {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ID 无效或者是过期 ，请使用新的ID或者再次尝试"))
 			return
@@ -207,6 +205,11 @@ func init() {
 		}
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("绑定成功~"))
 	})
+	engine.OnRegex(`^[! ！/](mai|b50)\sunbind$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("取消绑定成功~"))
+		RemoveUserIdFromDatabase(ctx.Event.UserID)
+	})
+
 	engine.OnRegex(`^[! ！/](mai|b50)\sunlock$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getMaiID := GetUserIDFromDatabase(ctx.Event.UserID)
 		if getMaiID.Userid == "" {

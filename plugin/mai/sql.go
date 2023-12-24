@@ -59,6 +59,13 @@ func GetUserIDFromDatabase(userID int64) UserIDToQQ {
 	return infosql
 }
 
+func RemoveUserIdFromDatabase(qq int64) {
+	maiLocker.Lock()
+	defer maiLocker.Unlock()
+	userIDStr := strconv.FormatInt(qq, 10)
+	_ = maiDatabase.Del("useridinfo", "where user_qq is "+userIDStr)
+}
+
 func (info *UserIDToQQ) BindUserIDDataBase() error {
 	maiLocker.Lock()
 	defer maiLocker.Unlock()
