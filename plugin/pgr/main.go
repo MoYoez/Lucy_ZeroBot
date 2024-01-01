@@ -67,7 +67,7 @@ var (
 		Help:              "Hi NekoPachi!\n",
 		PrivateDataFolder: "phi",
 	})
-	router = "https://phi-backend.lemonkoi.one"
+	router = "http://localhost:5000"
 )
 
 func init() {

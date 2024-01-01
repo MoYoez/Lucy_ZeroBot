@@ -80,7 +80,7 @@ func completions(messages []chatMessage, apiKey string) (*chatGPTResponseBody, e
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodPost, "https://api.openai.com/v1/chat/completions", bytes.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, "https://openai.lemonkoi.one/v1/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
