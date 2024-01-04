@@ -3,6 +3,7 @@ package mai
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"image"
 	"math/rand"
 	rand2 "math/rand"
@@ -67,23 +68,42 @@ func init() {
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		uid := ctx.Event.UserID
-		dataPlayer, err := QueryMaiBotDataFromQQ(int(uid))
-		if err != nil {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ERR: ", err))
-			return
-		}
-		var data player
-		_ = json.Unmarshal(dataPlayer, &data)
-		renderImg, plateStat := FullPageRender(data, ctx)
-		tipPlate := ""
-		getRand := rand2.Intn(10)
-		if getRand == 8 {
-			if !plateStat {
-				tipPlate = "tips: 可以使用 ！mai plate xxx 来绑定称号~\n"
+		if GetUserSwitcherInfoFromDatabase(uid) == true {
+			// use lxns checker service.
+			getUserData := RequestBasicDataFromLxns(uid)
+			getGameUserData := RequestB50DataByFriendCode(getUserData.Data.FriendCode)
+			fmt.Printf("\n" + strconv.FormatInt(getUserData.Data.FriendCode, 10))
+			getImager, boolType := ReFullPageRender(getGameUserData, getUserData, ctx)
+			tipPlate := ""
+			getRand := rand2.Intn(20)
+			if getRand == 8 {
+				if !boolType {
+					tipPlate = "tips: 可以使用 ！mai plate xxx 来绑定称号~\n"
+				}
 			}
+			_ = gg.NewContextForImage(getImager).SavePNG(engine.DataFolder() + "save/" + "LXNS_" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+getUserData.Data.Name+"\n"+tipPlate), message.Image(Saved+"LXNS_"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
+
+		} else {
+			dataPlayer, err := QueryMaiBotDataFromQQ(int(uid))
+			if err != nil {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ERR: ", err))
+				return
+			}
+			var data player
+			_ = json.Unmarshal(dataPlayer, &data)
+			renderImg, plateStat := FullPageRender(data, ctx)
+			tipPlate := ""
+			getRand := rand2.Intn(10)
+			if getRand == 8 {
+				if !plateStat {
+					tipPlate = "tips: 可以使用 ！mai plate xxx 来绑定称号~\n"
+				}
+			}
+			_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+data.Username+"\n"+tipPlate), message.Image(Saved+strconv.Itoa(int(ctx.Event.UserID))+".png"))
+
 		}
-		_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+data.Username+"\n"+tipPlate), message.Image(Saved+strconv.Itoa(int(ctx.Event.UserID))+".png"))
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		matched := ctx.State["regex_matched"].([]string)[2]
@@ -101,7 +121,18 @@ func init() {
 		}
 		_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+data.Username+"\n"+tipPlate+"\n"), message.Image(Saved+strconv.Itoa(int(ctx.Event.UserID))+".png"))
-
+	})
+	engine.OnRegex(`^[! ！/](mai|b50)\sswitch$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		getBool := GetUserSwitcherInfoFromDatabase(ctx.Event.UserID)
+		FormatUserSwitcher(ctx.Event.UserID, !getBool).ChangeUserSwitchInfoFromDataBase()
+		var getEventText string
+		// due to it changed, so reverse.
+		if getBool == false {
+			getEventText = "Lxns查分"
+		} else {
+			getEventText = "Diving Fish查分"
+		}
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("已经修改为"+getEventText))
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\splate\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getPlateInfo := ctx.State["regex_matched"].([]string)[2]
@@ -153,6 +184,11 @@ func init() {
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\sdefault\splate\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getDefaultInfo := ctx.State["regex_matched"].([]string)[2]
+		if getDefaultInfo == "" {
+			_ = FormatUserDataBase(ctx.Event.UserID, GetUserInfoFromDatabase(ctx.Event.UserID), getDefaultInfo).BindUserDataBase()
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("已经恢复了正常~"))
+			return
+		}
 		_, err := GetDefaultPlate(getDefaultInfo)
 		if err != nil {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("设定的预设不正确"))

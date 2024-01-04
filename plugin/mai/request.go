@@ -73,7 +73,6 @@ func QueryMaiBotDataFromUserName(username string) (playerdata []byte, err error)
 	playerDataByte, err := io.ReadAll(resp.Body)
 	return playerDataByte, err
 }
-
 func QueryChunDataFromQQ(qq int) (playerdata []byte, err error) {
 	// packed json and sent.
 	jsonStruct := DivingFishB50{QQ: qq, B50: true}

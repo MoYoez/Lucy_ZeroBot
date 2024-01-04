@@ -215,7 +215,6 @@ func init() {
 
 // FullPageRender  Render Full Page
 func FullPageRender(data player, ctx *zero.Ctx) (raw image.Image, stat bool) {
-
 	// muilt-threading.
 	var avatarHandler sync.WaitGroup
 	avatarHandler.Add(1)
