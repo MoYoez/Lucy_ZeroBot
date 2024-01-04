@@ -3,7 +3,6 @@ package mai
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"image"
 	"math/rand"
 	rand2 "math/rand"
@@ -71,18 +70,18 @@ func init() {
 		if GetUserSwitcherInfoFromDatabase(uid) == true {
 			// use lxns checker service.
 			getUserData := RequestBasicDataFromLxns(uid)
-			getGameUserData := RequestB50DataByFriendCode(getUserData.Data.FriendCode)
-			fmt.Printf("\n" + strconv.FormatInt(getUserData.Data.FriendCode, 10))
-			getImager, boolType := ReFullPageRender(getGameUserData, getUserData, ctx)
-			tipPlate := ""
-			getRand := rand2.Intn(20)
-			if getRand == 8 {
-				if !boolType {
-					tipPlate = "tips: 可以使用 ！mai plate xxx 来绑定称号~\n"
-				}
+			if getUserData.Code != 200 {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("aw 出现了一点小错误~：\n - 请检查你是否有上传过数据并且绑定了QQ号\n - 请检查你的设置是否允许了第三方查看"))
+				return
 			}
+			getGameUserData := RequestB50DataByFriendCode(getUserData.Data.FriendCode)
+			if getGameUserData.Code != 200 {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("aw 出现了一点小错误~：\n - 请检查你是否有上传过数据并且绑定了QQ号\n - 请检查你的设置是否允许了第三方查看"))
+				return
+			}
+			getImager, _ := ReFullPageRender(getGameUserData, getUserData, ctx)
 			_ = gg.NewContextForImage(getImager).SavePNG(engine.DataFolder() + "save/" + "LXNS_" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+getUserData.Data.Name+"\n"+tipPlate), message.Image(Saved+"LXNS_"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+getUserData.Data.Name), message.Image(Saved+"LXNS_"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
 
 		} else {
 			dataPlayer, err := QueryMaiBotDataFromQQ(int(uid))
