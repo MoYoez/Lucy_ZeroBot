@@ -235,7 +235,10 @@ func ReCardRenderBase(data LxnsMaimaiRequestDataPiece, getNum int) image.Image {
 	drawBackGround.FillPreserve()
 	// draw rest of card.
 	drawBackGround.SetFontFace(levelFont)
-	drawBackGround.DrawString(strconv.FormatFloat(data.DxRating, 'f', -1, 64), 195, 111)
+	getCount := GetShouldCount(data.Achievements)
+	actuallyOutput := data.DxRating / getCount * 100 / data.Achievements
+	actuallyOutputF := strconv.FormatFloat(actuallyOutput, 'f', 1, 64)
+	drawBackGround.DrawString(actuallyOutputF, 195, 111)
 	drawBackGround.FillPreserve()
 	drawBackGround.SetFontFace(ratingFont)
 	drawBackGround.DrawString("▶", 235, 111)
@@ -462,4 +465,45 @@ func ReturnMaiIndexBackground(returnInt int) image.Image {
 	}
 	data, _ := gg.LoadImage(loadMaiPic + "chart_" + NoHeadLineCase(chart) + ".png")
 	return data
+}
+
+func GetShouldCount(archivement float64) float64 {
+	switch {
+	case archivement >= 100.5:
+		return 22.4
+	case archivement >= 100.0:
+		return 21.6
+	case archivement >= 99.5:
+		return 21.1
+	case archivement >= 99.0:
+		return 20.8
+	case archivement >= 98.0:
+		return 20.3
+	case archivement >= 97.0:
+		return 20.0
+	case archivement >= 94.0:
+		return 16.8
+	case archivement >= 90.0:
+		return 13.6
+	case archivement >= 80.0:
+		return 12.8
+	case archivement >= 75.0:
+		return 12.0
+	case archivement >= 70.0:
+		return 11.2
+	case archivement >= 60.0:
+		return 9.6
+	case archivement >= 50.0:
+		return 8.0
+	case archivement >= 40.0:
+		return 6.4
+	case archivement >= 30.0:
+		return 4.8
+	case archivement >= 20.0:
+		return 3.2
+	case archivement >= 10.0:
+		return 1.6
+	default:
+		return 0.0
+	}
 }
