@@ -66,7 +66,6 @@ func GetUserSwitcherInfoFromDatabase(userid int64) bool {
 	userIDStr := strconv.FormatInt(userid, 10)
 	err := maiDatabase.Find("userswitcherinfo", &info, "where user_qq is "+userIDStr)
 	if err != nil {
-		FormatUserSwitcher(userid, false).ChangeUserSwitchInfoFromDataBase()
 		return false
 	}
 	return info.IsUsed

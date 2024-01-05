@@ -82,7 +82,6 @@ func init() {
 			getImager, _ := ReFullPageRender(getGameUserData, getUserData, ctx)
 			_ = gg.NewContextForImage(getImager).SavePNG(engine.DataFolder() + "save/" + "LXNS_" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+getUserData.Data.Name), message.Image(Saved+"LXNS_"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
-
 		} else {
 			dataPlayer, err := QueryMaiBotDataFromQQ(int(uid))
 			if err != nil {
@@ -123,7 +122,10 @@ func init() {
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\sswitch$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getBool := GetUserSwitcherInfoFromDatabase(ctx.Event.UserID)
-		FormatUserSwitcher(ctx.Event.UserID, !getBool).ChangeUserSwitchInfoFromDataBase()
+		err := FormatUserSwitcher(ctx.Event.UserID, !getBool).ChangeUserSwitchInfoFromDataBase()
+		if err != nil {
+			panic(err)
+		}
 		var getEventText string
 		// due to it changed, so reverse.
 		if getBool == false {
