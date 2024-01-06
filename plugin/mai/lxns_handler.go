@@ -332,7 +332,7 @@ func ReFullPageRender(data LxnsMaimaiRequestB50, userData LxnsMaimaiRequestFromQ
 			// show nil
 			// check again if user use origin plate
 			if userData.Data.NamePlate.Id != 0 {
-				getBackground, err := web.GetData("https://lxns.org/maimai/plate/" + strconv.FormatInt(int64(userData.Data.NamePlate.Id), 10) + ".png")
+				getBackground, err := web.GetData("https://maimai.lemonkoi.one/plate/" + strconv.FormatInt(int64(userData.Data.NamePlate.Id), 10) + ".png")
 				if err != nil {
 					b50bg = b50bgOriginal
 				}
@@ -425,7 +425,7 @@ func GetCoverLxns(id string) (image.Image, error) {
 	filePath := Root + "coverLxns/" + fileName
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		// Auto download cover from diving fish's site
-		downloadURL := "https://lxns.org/maimai/jacket/" + fileName
+		downloadURL := "https://maimai.lemonkoi.one/jacket/" + fileName
 		cover, err := downloadImage(downloadURL)
 		if err != nil {
 			return LoadPictureWithResize(defaultCoverLink, 90, 90), nil
