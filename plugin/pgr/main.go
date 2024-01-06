@@ -67,7 +67,7 @@ var (
 		Help:              "Hi NekoPachi!\n",
 		PrivateDataFolder: "phi",
 	})
-	router = "http://localhost:5000"
+	router = "http://localhost:51602"
 )
 
 func init() {
