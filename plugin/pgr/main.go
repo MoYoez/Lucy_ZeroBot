@@ -123,7 +123,8 @@ func init() {
 			}
 			err := json.Unmarshal(phidata, &phigrosB19)
 			if !phigrosB19.Status || err != nil {
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("w? 貌似出现了一些问题x"))
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("w? 貌似出现了一些问题x, Return MSG: ", phigrosB19.Message+"| 歌曲信息缺失，请更新"))
+				setGlobalStat = false
 				return
 			}
 		}()
@@ -166,7 +167,7 @@ func init() {
 		getMainBgRender.SetFontFace(fontface)
 		getMainBgRender.DrawString("Phigros", 422, 336)
 		getMainBgRender.DrawString("RankingScore查询", 422, 462)
-		// draw userinfo path
+		// draw userinfo.
 		renderHeaderText, _ := gg.LoadFontFace(font, 54)
 		getMainBgRender.SetFontFace(renderHeaderText)
 		dataWaiter.Wait()

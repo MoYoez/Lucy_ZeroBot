@@ -19,9 +19,19 @@ type DivingFishB50UserName struct {
 	B50      bool   `json:"b50"`
 }
 
-func QueryMaiBotDataFromQQ(qq int) (playerdata []byte, err error) {
+type DivingFishB40 struct {
+	QQ       int    `json:"qq"`
+	Username string `json:"username"`
+}
+
+func QueryMaiBotDataFromQQ(qq int, isB50 bool) (playerdata []byte, err error) {
 	// packed json and sent.
-	jsonStruct := DivingFishB50{QQ: qq, B50: true}
+	var jsonStruct interface{}
+	if isB50 == true {
+		jsonStruct = DivingFishB50{QQ: qq, B50: true}
+	} else {
+		jsonStruct = DivingFishB40{QQ: qq}
+	}
 	jsonStructData, err := json.Marshal(jsonStruct)
 	if err != nil {
 		return nil, err
