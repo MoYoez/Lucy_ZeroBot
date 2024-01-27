@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"image"
-	"math/rand"
 	rand2 "math/rand"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -15,8 +15,10 @@ import (
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/img/text"
+	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
+	"github.com/wdvxdr1123/ZeroBot/utils/helper"
 )
 
 var (
@@ -219,23 +221,6 @@ func init() {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("已经设定好了哦~"))
 
 	})
-	//
-	engine.OnFullMatch("mai什么").SetBlock(true).Handle(func(ctx *zero.Ctx) {
-		// on load
-		// get file first
-		SongData, err := os.ReadFile(engine.DataFolder() + "music_data")
-		if err != nil {
-			panic(err)
-		}
-		var SongDataRandomTools MaiSongData
-		err = json.Unmarshal(SongData, &SongDataRandomTools)
-		if err != nil {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ERR: ", err))
-			return
-		}
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("来试试~ "+SongDataRandomTools[rand.Intn(len(SongDataRandomTools))].BasicInfo.Title+" 吧~"))
-	})
-	// maimai bind id.
 	engine.OnRegex(`^[! ！/](mai|b50)\sbind\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getDefaultInfo := ctx.State["regex_matched"].([]string)[2]
 		indexReply := DecHashToRaw(getDefaultInfo)
@@ -250,7 +235,7 @@ func init() {
 			return
 		}
 		// check id
-		getID := GetUserMaiUserid(getSessionID)
+		getID := GetWahlapUserID(getSessionID)
 		if getID == -1 {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ID 无效或者是过期 ，请使用新的ID或者再次尝试"))
 			return
@@ -266,19 +251,102 @@ func init() {
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("取消绑定成功~"))
 		RemoveUserIdFromDatabase(ctx.Event.UserID)
 	})
-
 	engine.OnRegex(`^[! ！/](mai|b50)\sunlock$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getMaiID := GetUserIDFromDatabase(ctx.Event.UserID)
 		if getMaiID.Userid == "" {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://mai.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
-		getCode := FastUnlockerMai15mins(getMaiID.Userid)
-		if getCode == 200 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信成功，如果未生效请重新尝试"))
+		getCodeRaw, err := strconv.ParseInt(getMaiID.Userid, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		getCodeStat := Logout(getCodeRaw)
+		getCode := gjson.Get(getCodeStat, "returnCode").Int()
+		if getCode == 1 {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信成功，服务器返回正常, 如果未生效请重新尝试"))
 		} else {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信失败，如果未生效请重新尝试"))
 		}
 	})
+	engine.OnRegex(`^[! ！/](mai|b50)\stokenbind\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		getDefaultInfo := ctx.State["regex_matched"].([]string)[2]
+		FormatUserToken(strconv.FormatInt(ctx.Event.UserID, 10), getDefaultInfo).BindUserToken()
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("绑定成功~"))
+	})
+	engine.OnRegex(`^[! ！/](mai|b50)\supdate$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		getID := ctx.Event.UserID
+		getMaiID := GetUserIDFromDatabase(getID)
+		if getMaiID.Userid == "" {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://mai.lemonkoi.one 获取绑定码进行绑定"))
+			return
+		}
+		getTokenId := GetUserToken(strconv.FormatInt(getID, 10))
+		if getTokenId == "" {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请使用 /mai tokenbind <tokenid> 绑定水鱼查分器，其中 TokenID 从 https://www.diving-fish.com/maimaidx/prober 用户设置中拿到"))
+			return
+		}
+		if !CheckTheTicketIsValid(getTokenId) {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("此 Token 不合法 ，请重新绑定"))
+			return
+		}
+		// token is valid, get data.
+		getIntID, _ := strconv.ParseInt(getMaiID.Userid, 10, 64)
+		getFullData := GetMusicList(getIntID, 0, 300)
+		if gjson.Get(getFullData, "length").Int() > 300 {
+			getFullData = GetMusicList(getIntID, 0, gjson.Get(getFullData, "length").Int())
+		}
+		var unmashellData UserMusicListStruct
+		json.Unmarshal(helper.StringToBytes(getFullData), &unmashellData)
+		getFullDataStruct := convert(unmashellData)
+		jsonDumper := getFullDataStruct
+		jsonDumperFull, err := json.Marshal(jsonDumper)
+		os.WriteFile(engine.DataFolder()+"dump.json", jsonDumperFull, 0777)
+		if err != nil {
+			panic(err)
+		}
+		// upload to diving fish api
+		req, err := http.NewRequest("POST", "https://www.diving-fish.com/api/maimaidxprober/player/update_records", bytes.NewBuffer(jsonDumperFull))
+		if err != nil {
+			// Handle error
+			panic(err)
+		}
+		req.Header.Set("Import-Token", getTokenId)
+		req.Header.Set("Content-Type", "application/json")
 
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			panic(err)
+		}
+		//	NewReader, err := io.ReadAll(resp.Body)
+		if err != nil {
+			panic(err)
+		}
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Update CODE:"+strconv.Itoa(resp.StatusCode)))
+	})
+	engine.OnRegex(`^[! ！/](mai|b50)\sregion$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		getID := ctx.Event.UserID
+		getMaiID := GetUserIDFromDatabase(getID)
+		if getMaiID.Userid == "" {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://mai.lemonkoi.one 获取绑定码进行绑定"))
+			return
+		}
+		getCodeRaw, err := strconv.ParseInt(getMaiID.Userid, 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		getReplyMsg := GetUserRegion(getCodeRaw)
+		var MixedMagic GetUserRegionStruct
+		json.Unmarshal(helper.StringToBytes(getReplyMsg), &MixedMagic)
+		var returnText string
+		for _, onlistLoader := range MixedMagic.UserRegionList {
+			returnText = returnText + MixedRegionWriter(onlistLoader.RegionId, onlistLoader.PlayCount, onlistLoader.Created) + "\n\n"
+		}
+		if returnText == "" {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("目前 Lucy 没有查到您的游玩记录哦~"))
+			return
+		}
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("目前查询到您的游玩记录如下: \n\n"+returnText))
+	})
 }

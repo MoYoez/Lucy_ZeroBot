@@ -24,6 +24,11 @@ type UserSwitcherService struct {
 	IsUsed bool  `db:"isused"` // true == lxns service \ false == Diving Fish.
 }
 
+type UserIDToToken struct {
+	UserID string `db:"user_id"` // refer usertoken ==> qqid
+	Token  string `db:"user_token"`
+}
+
 var (
 	maiDatabase = &sql.Sqlite{}
 	maiLocker   = sync.Mutex{}
@@ -50,12 +55,17 @@ func FormatUserIDDatabase(qq int64, userid string) *UserIDToQQ {
 	return &UserIDToQQ{QQ: qq, Userid: userid}
 }
 
+func FormatUserToken(qq string, token string) *UserIDToToken {
+	return &UserIDToToken{Token: token, UserID: qq}
+}
+
 func InitDataBase() error {
 	maiLocker.Lock()
 	defer maiLocker.Unlock()
 	maiDatabase.Create("userinfo", &DataHostSQL{})
 	maiDatabase.Create("useridinfo", &UserIDToQQ{})
 	maiDatabase.Create("userswitcherinfo", &UserSwitcherService{})
+	maiDatabase.Create("usertokenid", &UserIDToToken{})
 	return nil
 }
 
@@ -124,4 +134,21 @@ func (info *DataHostSQL) BindUserDataBase() error {
 	maiLocker.Lock()
 	defer maiLocker.Unlock()
 	return maiDatabase.Insert("userinfo", info)
+}
+
+func GetUserToken(userid string) string {
+	maiLocker.Lock()
+	defer maiLocker.Unlock()
+	var infosql UserIDToToken
+	maiDatabase.Find("usertokenid", &infosql, "where user_id is "+userid)
+	if infosql.Token == "" {
+		return ""
+	}
+	return infosql.Token
+}
+
+func (info *UserIDToToken) BindUserToken() error {
+	maiLocker.Lock()
+	defer maiLocker.Unlock()
+	return maiDatabase.Insert("usertokenid", info)
 }

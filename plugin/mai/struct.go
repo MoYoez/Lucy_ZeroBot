@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -17,10 +18,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/FloatTech/floatbox/file"
+	"github.com/FloatTech/floatbox/web"
 	"github.com/FloatTech/gg"
 	"github.com/FloatTech/imgfactory"
+	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
+	"github.com/wdvxdr1123/ZeroBot/utils/helper"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 	"golang.org/x/text/width"
@@ -312,7 +316,6 @@ func FullPageRender(data player, ctx *zero.Ctx) (raw image.Image, stat bool) {
 			getInitY += 125
 		}
 	}
-
 	for dx := 0; dx < getDXLength; dx++ {
 		b50Render.DrawImage(RenderCard(data.Charts.Dx[dx], dx+1), getDXinitX, getDXinitY)
 		getDXinitX += 400
@@ -617,4 +620,58 @@ func PictureHandler(ctx *zero.Ctx) bool {
 		ctx.Event.MessageID = newCtx.Event.MessageID
 		return true
 	}
+}
+
+func CheckTheTicketIsValid(ticket string) bool {
+	getData, err := web.GetData("https://www.diving-fish.com/api/maimaidxprober/token_available?token=" + ticket)
+	if err != nil {
+		panic(err)
+	}
+	result := gjson.Get(helper.BytesToString(getData), "message").String()
+	if result == "ok" {
+		return true
+	}
+	return false
+}
+
+func convert(listStruct UserMusicListStruct) []InnerStructChanger {
+	getRequest, err := os.ReadFile(engine.DataFolder() + "music_data")
+	if err != nil {
+		panic(err)
+	}
+	var divingfishMusicData []DivingFishMusicDataStruct
+	err = json.Unmarshal(getRequest, &divingfishMusicData)
+	if err != nil {
+		panic(err)
+	}
+	mdMap := make(map[string]DivingFishMusicDataStruct)
+	for _, m := range divingfishMusicData {
+		mdMap[m.Id] = m
+	}
+	var dest []InnerStructChanger
+	for _, musicList := range listStruct.UserMusicList {
+		for _, musicDetailedList := range musicList.UserMusicDetailList {
+			level := musicDetailedList.Level
+			achievement := math.Min(1010000, float64(musicDetailedList.Achievement))
+			fc := []string{"", "fc", "fcp", "ap", "app"}[musicDetailedList.ComboStatus]
+			fs := []string{"", "fs", "fsp", "fsd", "fsdp"}[musicDetailedList.SyncStatus]
+			dxScore := musicDetailedList.DeluxscoreMax
+			dest = append(dest, InnerStructChanger{
+				Title:        mdMap[strconv.Itoa(musicDetailedList.MusicId)].Title,
+				Type:         mdMap[strconv.Itoa(musicDetailedList.MusicId)].Type,
+				LevelIndex:   level,
+				Achievements: (achievement) / 10000,
+				Fc:           fc,
+				Fs:           fs,
+				DxScore:      dxScore,
+			})
+		}
+	}
+	return dest
+}
+
+// MixedRegionWriter Some Mixed Magic, looking for your region information.
+func MixedRegionWriter(regionID int, playCount int, createdDate string) string {
+	getCountryID := returnCountryID(regionID)
+	return fmt.Sprintf(" - 在 regionID 为 %d (%s) 的省/直辖市 游玩过 %d 次, 第一次游玩时间于 %s", regionID, getCountryID, playCount, createdDate)
 }
