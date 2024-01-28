@@ -341,7 +341,7 @@ func init() {
 		json.Unmarshal(helper.StringToBytes(getReplyMsg), &MixedMagic)
 		var returnText string
 		for _, onlistLoader := range MixedMagic.UserRegionList {
-			returnText = returnText + MixedRegionWriter(onlistLoader.RegionId, onlistLoader.PlayCount, onlistLoader.Created) + "\n\n"
+			returnText = returnText + MixedRegionWriter(onlistLoader.RegionId-1, onlistLoader.PlayCount, onlistLoader.Created) + "\n\n"
 		}
 		if returnText == "" {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("目前 Lucy 没有查到您的游玩记录哦~"))
