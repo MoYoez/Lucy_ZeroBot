@@ -30,6 +30,48 @@ import (
 	"golang.org/x/text/width"
 )
 
+type WebPingStauts struct {
+	Details struct {
+		MaimaiDXCN struct {
+			Uptime float64 `json:"uptime"`
+		} `json:"maimai DX CN"`
+		MaimaiDXCNDXNet struct {
+			Uptime float64 `json:"uptime"`
+		} `json:"maimai DX CN DXNet"`
+		MaimaiDXCNMain struct {
+			Uptime float64 `json:"uptime"`
+		} `json:"maimai DX CN Main"`
+		MaimaiDXCNNetLogin struct {
+			Uptime float64 `json:"uptime"`
+		} `json:"maimai DX CN NetLogin"`
+		MaimaiDXCNTitle struct {
+			Uptime float64 `json:"uptime"`
+		} `json:"maimai DX CN Title"`
+		MaimaiDXCNUpdate struct {
+			Uptime float64 `json:"uptime"`
+		} `json:"maimai DX CN Update"`
+	} `json:"details"`
+	Status bool `json:"status"`
+}
+
+type ZlibErrorStatus struct {
+	Full struct {
+		Field1 int `json:"10"`
+		Field2 int `json:"30"`
+		Field3 int `json:"60"`
+	} `json:"full"`
+	FullError struct {
+		Field1 int `json:"10"`
+		Field2 int `json:"30"`
+		Field3 int `json:"60"`
+	} `json:"full_Error"`
+	ZlibError struct {
+		Field1 int `json:"10"`
+		Field2 int `json:"30"`
+		Field3 int `json:"60"`
+	} `json:"zlib_Error"`
+}
+
 type player struct {
 	AdditionalRating int `json:"additional_rating"`
 	Charts           struct {
@@ -673,5 +715,106 @@ func convert(listStruct UserMusicListStruct) []InnerStructChanger {
 // MixedRegionWriter Some Mixed Magic, looking for your region information.
 func MixedRegionWriter(regionID int, playCount int, createdDate string) string {
 	getCountryID := returnCountryID(regionID)
-	return fmt.Sprintf(" - 在 regionID 为 %d (%s) 的省/直辖市 游玩过 %d 次, 第一次游玩时间于 %s", regionID, getCountryID, playCount, createdDate)
+	return fmt.Sprintf(" - 在 regionID 为 %d (%s) 的省/直辖市 游玩过 %d 次, 第一次游玩时间于 %s", regionID+1, getCountryID, playCount, createdDate)
+}
+
+// ReportToEndPoint Report Some Error To Wahlap Server.
+func ReportToEndPoint(getReport int, getReportType string) string {
+	url := "https://maihook.lemonkoi.one/api/zlib?report=" + strconv.Itoa(getReport) + "&reportType=" + getReportType
+	method := "GET"
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	req.Header.Add("authkey", authKey)
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Host", "maihook.lemonkoi.one")
+	req.Header.Add("Connection", "keep-alive")
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	return string(body)
+}
+
+// ReturnZlibError Return Zlib ERROR
+func ReturnZlibError() ZlibErrorStatus {
+	url := "https://maihook.lemonkoi.one/api/zlib"
+	method := "GET"
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+		return ZlibErrorStatus{}
+	}
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Host", "maihook.lemonkoi.one")
+	req.Header.Add("Connection", "keep-alive")
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return ZlibErrorStatus{}
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return ZlibErrorStatus{}
+	}
+	var returnData ZlibErrorStatus
+	json.Unmarshal(body, &returnData)
+	return returnData
+}
+
+// ReturnWebStatus Get Web Uptime Status.
+func ReturnWebStatus() WebPingStauts {
+	url := "https://maihook.lemonkoi.one/api/ping"
+	method := "GET"
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+
+	if err != nil {
+		fmt.Println(err)
+		return WebPingStauts{}
+	}
+	req.Header.Add("Accept", "*/*")
+	req.Header.Add("Host", "maihook.lemonkoi.one")
+	req.Header.Add("Connection", "keep-alive")
+	res, err := client.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return WebPingStauts{}
+	}
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		fmt.Println(err)
+		return WebPingStauts{}
+	}
+	var returnData WebPingStauts
+	json.Unmarshal(body, &returnData)
+	return returnData
+}
+
+func ConvertZlib(value, total int) string {
+	if total == 0 {
+		return "0.000%"
+	}
+	percentage := float64(value) / float64(total) * 100
+	return fmt.Sprintf("%.3f%%", percentage)
+}
+
+func ConvertFloat(data float64) string {
+	return strconv.FormatFloat(data, 'f', 3, 64)
 }

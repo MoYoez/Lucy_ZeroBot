@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/FloatTech/floatbox/binary"
 	"github.com/FloatTech/floatbox/web"
@@ -259,14 +260,19 @@ func init() {
 		}
 		getCodeRaw, err := strconv.ParseInt(getMaiID.Userid, 10, 64)
 		if err != nil {
-			panic(err)
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Wahlap ServerERR: "+err.Error()))
+			return
 		}
 		getCodeStat := Logout(getCodeRaw)
+		if strings.Contains(getCodeStat, "{") == false {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getCodeStat))
+			return
+		}
 		getCode := gjson.Get(getCodeStat, "returnCode").Int()
 		if getCode == 1 {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信成功，服务器返回正常, 如果未生效请重新尝试"))
 		} else {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信失败，如果未生效请重新尝试"))
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信成功，但是服务器返回代码异常。"))
 		}
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\stokenbind\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
@@ -292,16 +298,19 @@ func init() {
 		}
 		// token is valid, get data.
 		getIntID, _ := strconv.ParseInt(getMaiID.Userid, 10, 64)
-		getFullData := GetMusicList(getIntID, 0, 300)
-		if gjson.Get(getFullData, "length").Int() > 300 {
-			getFullData = GetMusicList(getIntID, 0, gjson.Get(getFullData, "length").Int())
+		getFullData := GetMusicList(getIntID, 0, 1000)
+		if strings.Contains(getFullData, "{") == false {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getFullData))
+			return
 		}
-		var unmashellData UserMusicListStruct
-		json.Unmarshal(helper.StringToBytes(getFullData), &unmashellData)
-		getFullDataStruct := convert(unmashellData)
+		var jsonMashell UserMusicListStruct
+		err := json.Unmarshal(helper.StringToBytes(getFullData), &jsonMashell)
+		if err != nil {
+			panic(err)
+		}
+		getFullDataStruct := convert(jsonMashell)
 		jsonDumper := getFullDataStruct
 		jsonDumperFull, err := json.Marshal(jsonDumper)
-		os.WriteFile(engine.DataFolder()+"dump.json", jsonDumperFull, 0777)
 		if err != nil {
 			panic(err)
 		}
@@ -313,7 +322,6 @@ func init() {
 		}
 		req.Header.Set("Import-Token", getTokenId)
 		req.Header.Set("Content-Type", "application/json")
-
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -337,6 +345,10 @@ func init() {
 			panic(err)
 		}
 		getReplyMsg := GetUserRegion(getCodeRaw)
+		if strings.Contains(getReplyMsg, "{") == false {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getReplyMsg))
+			return
+		}
 		var MixedMagic GetUserRegionStruct
 		json.Unmarshal(helper.StringToBytes(getReplyMsg), &MixedMagic)
 		var returnText string
@@ -349,4 +361,21 @@ func init() {
 		}
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("目前查询到您的游玩记录如下: \n\n"+returnText))
 	})
+	engine.OnRegex(`^(网咋样|[! ！/](mai|b50)\sstatus$)`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		// getWebStatus
+		getWebStatus := ReturnWebStatus()
+		getZlibError := ReturnZlibError()
+		// 20s one request.
+		var getLucyRespHandler int
+		if getZlibError.Full.Field3 < 180 {
+			getLucyRespHandler = getZlibError.Full.Field3
+		} else {
+			getLucyRespHandler = getZlibError.Full.Field3 - 180
+		}
+		getLucyRespHandlerStr := strconv.Itoa(getLucyRespHandler)
+		getZlibWord := "Zlib 压缩跳过率: \n" + "10mins (" + ConvertZlib(getZlibError.ZlibError.Field1, getZlibError.Full.Field1) + " Loss)\n" + "30mins (" + ConvertZlib(getZlibError.ZlibError.Field2, getZlibError.Full.Field2) + " Loss)\n" + "60mins (" + ConvertZlib(getZlibError.ZlibError.Field3, getZlibError.Full.Field3) + " Loss)\n"
+		getWebStatusCount := "Web Uptime Ping:\n * MaimaiDXCN: " + ConvertFloat(getWebStatus.Details.MaimaiDXCN.Uptime*100) + "%\n * MaimaiDXCN Main Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNMain.Uptime*100) + "%\n * MaimaiDXCN Title Server: " + ConvertFloat(float64(getWebStatus.Details.MaimaiDXCNTitle.Uptime*100)) + "%\n * MaimaiDXCN Update Server: " + ConvertFloat(float64(getWebStatus.Details.MaimaiDXCNUpdate.Uptime*100)) + "%\n * MaimaiDXCN NetLogin Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNNetLogin.Uptime*100) + "%\n * MaimaiDXCN Net Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNDXNet.Uptime*100) + "%\n"
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("* Zlib 压缩跳过率可以很好的反馈当前 MaiNet (Wahlap Service) 当前负载的情况\n* Web Uptime Ping 则可以反馈 MaiNet 在外部原因(DDOS) 下造成的负载详情 ( 100% 即代表服务器为稳定, uptime 越低则代表可用性越差 ) \n* 在 1小时 内，Lucy 共处理了 "+getLucyRespHandlerStr+"次 请求💫，其中详细数据如下:\n\n"+getZlibWord+getWebStatusCount+"\n* Title Server 爆炸 容易造成数据获取失败\n* Zlib 3% Loss 以下则 基本上可以正常游玩\n* 10% Loss 则会有明显断网现象(请准备小黑屋工具)\n* 30% Loss 则无法正常游玩(即使使用小黑屋工具) "))
+	})
+
 }
