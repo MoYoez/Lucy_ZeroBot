@@ -1,6 +1,6 @@
 ## Lucy_ZeroBot
 
-Lucy |  Ver.1.90 (Nightly)
+Lucy |  Ver.1.92 (Nightly)
 
 基于 [Zerobot-Plugin](https://github.com/FloatTech/ZeroBot-Plugin) 的 三方 Bot 计划 Lucy
 
@@ -8,5 +8,5 @@ Lucy |  Ver.1.90 (Nightly)
 
 **Made By MoeMagicMango with ❤**
 
-**Copyright © 2021-2023 FloatTech. All Rights Reserved.**
+**Copyright © 2021-2024 FloatTech. All Rights Reserved.**
 
