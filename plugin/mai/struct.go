@@ -30,6 +30,16 @@ import (
 	"golang.org/x/text/width"
 )
 
+type RealConvertPlay struct {
+	ReturnValue []struct {
+		SkippedCount  int `json:"skippedCount"`
+		RetriedCount  int `json:"retriedCount"`
+		RetryCountSum int `json:"retryCountSum"`
+		TotalCount    int `json:"totalCount"`
+		FailedCount   int `json:"failedCount"`
+	} `json:"returnValue"`
+}
+
 type WebPingStauts struct {
 	Details struct {
 		MaimaiDXCN struct {
@@ -817,4 +827,40 @@ func ConvertZlib(value, total int) string {
 
 func ConvertFloat(data float64) string {
 	return strconv.FormatFloat(data, 'f', 3, 64)
+}
+
+func ConvertRealPlayWords(retry RealConvertPlay) string {
+	var pickedWords string
+	var count = 0
+	var header = " - 错误率数据收集自机台的真实网络通信，可以反映舞萌 DX 的网络状况。\n"
+
+	for _, word := range retry.ReturnValue {
+		var timeCount int
+		var UserReturnLogs string
+		switch {
+		case count == 0:
+			timeCount = 10
+		case count == 1:
+			timeCount = 30
+		case count == 2:
+			timeCount = 60
+		}
+
+		if word.TotalCount < 20 {
+			UserReturnLogs = "没有收集到足够的数据进行分析~"
+		} else {
+			totalSuccess := word.TotalCount - word.FailedCount
+			skippedRate := float64(word.SkippedCount) / float64(totalSuccess) * 100
+			otherErrorRate := float64(word.RetryCountSum) / float64(totalSuccess+word.RetryCountSum) * 100
+			overallErrorRate := (float64(word.SkippedCount+word.RetryCountSum) / float64(totalSuccess+word.RetryCountSum)) * 100
+			skippedRate = math.Round(skippedRate*100) / 100
+			otherErrorRate = math.Round(otherErrorRate*100) / 100
+			overallErrorRate = math.Round(overallErrorRate*100) / 100
+			UserReturnLogs = fmt.Sprintf("共 %d 个成功的请求中，有 %d 次未压缩（%.2f%%），有 %d 个请求共 %d 次其他错误（%.2f%%），整体错误率为 %.2f%%。", totalSuccess, word.SkippedCount, skippedRate, word.RetriedCount, word.RetryCountSum, otherErrorRate, overallErrorRate)
+		}
+		pickedWords = pickedWords + fmt.Sprintf("\n - 在 %d 分钟内%s", timeCount, UserReturnLogs)
+		count = count + 1
+
+	}
+	return header + pickedWords + "\n"
 }
