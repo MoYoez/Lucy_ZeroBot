@@ -3,6 +3,7 @@ package mai
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 
 	zero "github.com/wdvxdr1123/ZeroBot"
@@ -39,20 +40,31 @@ func init() {
 			return
 		}
 		uniqueMap := make(map[string]bool)
+		var getExpectList []int
+		for i := range returnValue.Data {
+			getInt, err := strconv.Atoi(i)
+			if err != nil {
+				panic(err)
+			}
+			getExpectList = append(getExpectList, getInt)
+		}
+		// sort
+		sort.Ints(getExpectList)
+		i := 0
 		var returnText string
-
-		for returnTimeCost, _ := range returnValue.Data {
+		for range returnValue.Data {
 			uniqueList := make([]string, 0, len(uniqueMap))
-			for _, userlist := range returnValue.Data[returnTimeCost] {
+			for _, userlist := range returnValue.Data[strconv.Itoa(getExpectList[i])] {
 				uniqueMap[strconv.Itoa(userlist.UserID)] = true
 			}
 			for key := range uniqueMap {
 				uniqueList = append(uniqueList, key)
 			}
 			getuserListIDListLength := len(uniqueList)
-			getUserFullPC := len(returnValue.Data[returnTimeCost])
-			getReturnText := PlayReturnText(returnTimeCost, getuserListIDListLength, getUserFullPC)
+			getUserFullPC := len(returnValue.Data[strconv.Itoa(getExpectList[i])])
+			getReturnText := PlayReturnText(strconv.Itoa(getExpectList[i]), getuserListIDListLength, getUserFullPC)
 			returnText = returnText + "\n" + getReturnText
+			i = i + 1
 		}
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("宝贝王合肥万达广场店的 1 台舞萌 DX：\n"+returnText))
 	})
