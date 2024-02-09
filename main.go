@@ -33,8 +33,10 @@ import (
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/whitelist" // whitelist plugin
 
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/chan"  // chan plugin
-	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/slash" // slash plugin
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/chan"   // chan plugin
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/choose" // slash plugin
+
+	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/slash" // choose
 
 	_ "github.com/FloatTech/ZeroBot-Plugin/plugin/simai" // simai plugin should be the last it will cause command block.
 
