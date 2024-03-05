@@ -13,7 +13,6 @@ require (
 	github.com/FloatTech/zbputils v1.6.2-0.20230207084008-8c14cb9fcacb
 	github.com/disintegration/imaging v1.6.2
 	github.com/fumiama/gotracemoe v0.0.3
-	github.com/fumiama/jieba v0.0.0-20221203025406-36c17a10b565
 	github.com/jinzhu/gorm v1.9.16
 	github.com/joho/godotenv v1.5.1
 	github.com/mroth/weightedrand v1.0.0
@@ -37,6 +36,7 @@ require (
 	github.com/fumiama/go-simple-protobuf v0.1.0 // indirect
 	github.com/fumiama/gofastTEA v0.0.10 // indirect
 	github.com/fumiama/imgsz v0.0.2 // indirect
+	github.com/fumiama/jieba v0.0.0-20221203025406-36c17a10b565 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/uuid v1.4.0 // indirect

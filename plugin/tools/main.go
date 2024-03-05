@@ -24,7 +24,3 @@ var (
 		PrivateDataFolder: "tools",
 	})
 )
-
-func init() {
-
-}

@@ -23,16 +23,17 @@ type Scoretable struct {
 
 // Signintable 签到结构体
 type Signintable struct {
-	UID       int64 `gorm:"column:uid;primary_key"`
-	Count     int   `gorm:"column:count;default:0"`
-	Coins     int   `gorm:"column:coins;default:0"`
-	UpdatedAt time.Time
+	UID         int64 `gorm:"column:uid;primary_key"`
+	Count       int   `gorm:"column:count;default:0"`
+	Coins       int   `gorm:"column:coins;default:0"`
+	SignUpdated int64 `gorm:"column:sign;default:0"` // fix : score shown error.
+	UpdatedAt   time.Time
 }
 
 // Globaltable 总体结构体
 type Globaltable struct {
-	Counttime int    `gorm:"column:counttime;default:0"`
-	Times     string `gorm:"column:times;primary_key"`
+	Counttime int `gorm:"column:counttime;default:0"`
+	Times     string
 }
 
 // WagerTable wager Table Struct
@@ -95,13 +96,13 @@ func Initialize(dbpath string) *Scoredb {
 		defer func(f *os.File) {
 			err := f.Close()
 			if err != nil {
-				panic(err)
+				return
 			}
 		}(f)
 	}
 	gdb, err := gorm.Open("sqlite3", dbpath)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	gdb.AutoMigrate(&Scoretable{}).AutoMigrate(&Signintable{}).AutoMigrate(&Globaltable{}).AutoMigrate(&WagerTable{}).AutoMigrate(&WagerUserInputTable{}).AutoMigrate(&ProtectModeIndex{})
 	return (*Scoredb)(gdb)
@@ -175,11 +176,21 @@ func GetCurrentCount(sdb *Scoredb, times string) (si Globaltable) {
 	return si
 }
 
-// GetWagerStatus Get Status
+// GetWagerStatus Get Status (total)
 func GetWagerStatus(sdb *Scoredb) (si WagerTable) {
 	db := (*gorm.DB)(sdb)
 	db.Debug().Model(&WagerTable{}).FirstOrCreate(&si, "winner = ? ", 0)
 	return si
+}
+
+// GetUserIsSignInToday Check user is signin today.
+func GetUserIsSignInToday(sdb *Scoredb, uid int64) (getStat bool, si Signintable) {
+	db := (*gorm.DB)(sdb)
+	db.Debug().Model(&Signintable{}).FirstOrCreate(&si, "uid = ? ", uid)
+	getLocation, _ := time.LoadLocation("Asia/Shanghai")
+	getDatabaseTime := time.Unix(si.SignUpdated, 0).In(getLocation)
+	getNow := time.Unix(time.Now().Unix(), 0).In(getLocation).Add(time.Minute * 30)
+	return getDatabaseTime.Year() == getNow.Year() && getDatabaseTime.Month() == getNow.Month() && getDatabaseTime.Day() == getNow.Day(), si
 }
 
 // GetWagerUserStatus Get Status
@@ -254,6 +265,26 @@ func InsertUserCoins(sdb *Scoredb, uid int64, coins int) (err error) { // 修改
 	return
 }
 
+func UpdateUserSignInValue(sdb *Scoredb, uid int64) (err error) {
+	db := (*gorm.DB)(sdb)
+	si := Signintable{
+		UID:         uid,
+		SignUpdated: time.Now().Unix(),
+	}
+	if err = db.Debug().Model(&Signintable{}).First(&si, "uid = ? ", uid).Error; err != nil {
+		// error handling...
+		if gorm.IsRecordNotFoundError(err) {
+			db.Debug().Model(&Signintable{}).Create(&si) // newUser not user
+		}
+	} else {
+		err = db.Debug().Model(&Signintable{}).Where("uid = ? ", uid).Update(
+			map[string]interface{}{
+				"sign": time.Now().Unix(),
+			}).Error
+	}
+	return
+}
+
 func UpdateUserTime(sdb *Scoredb, counttime int, times string) (err error) {
 	db := (*gorm.DB)(sdb)
 	si := Globaltable{
@@ -289,7 +320,7 @@ func WagerCoinsInsert(sdb *Scoredb, modifyCoins int, winner int, expected int) (
 	return err
 }
 
-func CheckUserCoins(coins int) bool { // 参与一次200个柠檬片
+func CheckUserCoins(coins int) bool { // 参与一次60个柠檬片
 	return coins-60 >= 0
 }
 

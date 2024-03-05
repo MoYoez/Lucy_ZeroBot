@@ -4,6 +4,7 @@ package score
 import (
 	"bytes"
 	"encoding/base64"
+	"github.com/FloatTech/floatbox/math"
 	"image/jpeg"
 	"math/rand"
 	"strconv"
@@ -38,39 +39,31 @@ func init() {
 
 	engine.OnFullMatchGroup([]string{"签到", "打卡"}, zero.OnlyGroup).SetBlock(true).Limit(ctxext.LimitByUser).
 		Handle(func(ctx *zero.Ctx) {
-			mutex.Lock()
-			defer mutex.Unlock()
 			uid := ctx.Event.UserID
 			// save time data by add 30mins (database save it, not to handle it when it gets ready.)
 			// just handle data time when it on,make sure to decrease 30 mins when render the page(
-
-			// not sure what happened
 			getNowUnixFormatElevenThirten := time.Now().Add(time.Minute * 30).Format("20060102")
-
+			getStatus, _ := coins.GetUserIsSignInToday(sdb, uid)
 			si := coins.GetSignInByUID(sdb, uid)
-
-			// in case
 			drawedFile := cachePath + strconv.FormatInt(uid, 10) + getNowUnixFormatElevenThirten + "signin.png"
 
-			if si.UpdatedAt.Add(time.Minute*30).Format("20060102") == getNowUnixFormatElevenThirten && si.Count != 0 {
+			if getStatus && si.Count != 0 {
 				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("w~ 你今天已经签到过了哦w"))
 				if file.IsExist(drawedFile) {
 					ctx.SendChain(message.Image("file:///" + file.BOTPATH + "/" + drawedFile))
 				}
 				return
 			}
-
 			coinsGet := 300 + rand.Intn(200)
-
+			coins.UpdateUserSignInValue(sdb, uid)
 			_ = coins.InsertUserCoins(sdb, uid, si.Coins+coinsGet)
 			_ = coins.InsertOrUpdateSignInCountByUID(sdb, uid, si.Count+1) // 柠檬片获取
 			score := coins.GetScoreByUID(sdb, uid).Score
-			score++ //  每日+1
+			score++
 			_ = coins.InsertOrUpdateScoreByUID(sdb, uid, score)
 			CurrentCountTable := coins.GetCurrentCount(sdb, getNowUnixFormatElevenThirten)
 			handledTodayNum := CurrentCountTable.Counttime + 1
 			_ = coins.UpdateUserTime(sdb, handledTodayNum, getNowUnixFormatElevenThirten)
-
 			if time.Now().Hour() > 6 && time.Now().Hour() < 19 {
 				// package for test draw.
 				getTimeReplyMsg := coins.GetHourWord(time.Now()) // get time and msg
@@ -95,9 +88,9 @@ func init() {
 				RankGoal := rankNum + 1
 				achieveNextGoal := coins.LevelArray[RankGoal]
 				achievedGoal := coins.LevelArray[rankNum]
-				currentNextGoalMeasure := achieveNextGoal - score  // measure rest of the num. like 20 - currentLink(TestRank 15)
-				measureGoalsLens := achieveNextGoal - achievedGoal // like 20 - 10
-				currentResult := float64(currentNextGoalMeasure) / float64(measureGoalsLens)
+				currentNextGoalMeasure := achieveNextGoal - score            // measure rest of the num. like 20 - currentLink(TestRank 15)
+				measureGoalsLens := math.Abs(achievedGoal - achieveNextGoal) // like 20 - 10
+				currentResult := float64(measureGoalsLens-currentNextGoalMeasure) / float64(measureGoalsLens)
 				// draw this part
 				dayGround.SetRGB255(180, 255, 254)        // aqua color
 				dayGround.DrawRectangle(70, 570, 600, 50) // draw rectangle part1
@@ -108,7 +101,7 @@ func init() {
 				dayGround.SetRGB255(0, 0, 0)
 				dayGround.DrawString("Lv. "+strconv.Itoa(rankNum)+" 签到天数 + 1", 80, 490)
 				_ = dayGround.LoadFontFace(engine.DataFolder()+"dyh.ttf", 40)
-				dayGround.DrawString(strconv.Itoa(currentNextGoalMeasure)+"/"+strconv.Itoa(measureGoalsLens), 710, 610)
+				dayGround.DrawString(strconv.Itoa(measureGoalsLens-currentNextGoalMeasure)+"/"+strconv.Itoa(measureGoalsLens), 710, 610)
 				tureResult := dayGround.Image()
 				var buf bytes.Buffer
 				err := jpeg.Encode(&buf, tureResult, nil)
@@ -143,9 +136,9 @@ func init() {
 				RankGoal := rankNum + 1
 				achieveNextGoal := coins.LevelArray[RankGoal]
 				achievedGoal := coins.LevelArray[rankNum]
-				currentNextGoalMeasure := achieveNextGoal - score  // measure rest of the num. like 20 - currentLink(TestRank 15)
-				measureGoalsLens := achieveNextGoal - achievedGoal // like 20 - 10
-				currentResult := float64(currentNextGoalMeasure) / float64(measureGoalsLens)
+				currentNextGoalMeasure := achieveNextGoal - score            // measure rest of the num. like 20 - currentLink(TestRank 15)
+				measureGoalsLens := math.Abs(achievedGoal - achieveNextGoal) // like 20 - 10
+				currentResult := float64(measureGoalsLens-currentNextGoalMeasure) / float64(measureGoalsLens)
 				// draw this part
 				nightGround.SetRGB255(49, 86, 157)          // aqua color
 				nightGround.DrawRectangle(70, 570, 600, 50) // draw rectangle part1
@@ -156,7 +149,7 @@ func init() {
 				nightGround.SetRGB255(255, 255, 255)
 				nightGround.DrawString("Lv. "+strconv.Itoa(rankNum)+" 签到天数 + 1", 80, 490)
 				_ = nightGround.LoadFontFace(engine.DataFolder()+"dyh.ttf", 40)
-				nightGround.DrawString(strconv.Itoa(currentNextGoalMeasure)+"/"+strconv.Itoa(measureGoalsLens), 710, 610)
+				nightGround.DrawString(strconv.Itoa(measureGoalsLens-currentNextGoalMeasure)+"/"+strconv.Itoa(measureGoalsLens), 710, 610)
 				tureResult := nightGround.Image()
 				var buf bytes.Buffer
 				err := jpeg.Encode(&buf, tureResult, nil)
