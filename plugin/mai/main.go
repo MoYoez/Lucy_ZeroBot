@@ -3,6 +3,7 @@ package mai
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/FloatTech/ZeroBot-Plugin/compounds/toolchain"
 	"image"
 	rand2 "math/rand"
 	"net/http"
@@ -298,7 +299,7 @@ func init() {
 		}
 		// token is valid, get data.
 		getIntID, _ := strconv.ParseInt(getMaiID.Userid, 10, 64)
-		getFullData := GetMusicList(getIntID, 0, 1000)
+		getFullData := GetMusicList(getIntID, 0, 5000)
 		if strings.Contains(getFullData, "{") == false {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getFullData))
 			return
@@ -384,6 +385,238 @@ func init() {
 		getRealStatus := "\n以下数据来源于mai机台的数据反馈\n"
 		//	getWebStatusCount := "Web Uptime Ping:\n * MaimaiDXCN: " + ConvertFloat(getWebStatus.Details.MaimaiDXCN.Uptime*100) + "%\n * MaimaiDXCN Main Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNMain.Uptime*100) + "%\n * MaimaiDXCN Title Server: " + ConvertFloat(float64(getWebStatus.Details.MaimaiDXCNTitle.Uptime*100)) + "%\n * MaimaiDXCN Update Server: " + ConvertFloat(float64(getWebStatus.Details.MaimaiDXCNUpdate.Uptime*100)) + "%\n * MaimaiDXCN NetLogin Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNNetLogin.Uptime*100) + "%\n * MaimaiDXCN Net Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNDXNet.Uptime*100) + "%\n"
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("* Zlib 压缩跳过率可以很好的反馈当前 MaiNet (Wahlap Service) 当前负载的情况，根据样本 + Lucy处理情况 来判断 \n* 错误率收集则来源于 机台游玩数据，反应各地区真实mai游玩错误情况 \n* 在 1小时 内，Lucy 共处理了 "+getLucyRespHandlerStr+"次 请求💫，其中详细数据如下:\n\n"+getZlibWord+getRealStatus+"\n"+ConvertRealPlayWords(playerStatus)+"\n* Zlib 3% Loss 以下则 基本上可以正常游玩\n* 10% Loss 则会有明显断网现象(请准备小黑屋工具)\n* 30% Loss 则无法正常游玩(即使使用小黑屋工具) "))
+	})
+	engine.OnRegex(`^[! ！/](mai|b50)\squery\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		getDefaultInfo := ctx.State["regex_matched"].([]string)[2]
+		// CASE: if User Trigger This command, check other settings.
+		// getQuery:
+		// level_index | song_type
+		getLength, getSplitInfo := toolchain.SplitCommandTo(getDefaultInfo, 2)
+		userSettingInterface := map[string]string{}
+		var settedSongAlias string
+		if getLength > 1 { // prefix judge.
+			settedSongAlias = getSplitInfo[1]
+			for i, returnLevelValue := range []string{"绿", "黄", "红", "紫", "白"} {
+				if strings.Contains(getSplitInfo[0], returnLevelValue) {
+					userSettingInterface["level_index"] = strconv.Itoa(i)
+					break
+				}
+			}
+			switch {
+			case strings.Contains(getSplitInfo[0], "dx"):
+				userSettingInterface["song_type"] = "dx"
+			case strings.Contains(getSplitInfo[0], "标"):
+				userSettingInterface["song_type"] = "standard"
+			}
+		} else {
+			// no other infos. || default setting ==> dx Master | std Master | dx expert | std expert (as the highest score)
+			settedSongAlias = getSplitInfo[0]
+		}
+		// get SongID, render.
+		getUserID := ctx.Event.UserID
+		getBool := GetUserSwitcherInfoFromDatabase(getUserID)
+		queryStatus, songIDList, accStat := QueryReferSong(settedSongAlias, getBool)
+		if queryStatus == false {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("未找到对应歌曲，可能是数据库未收录（"))
+			return
+		}
+		if accStat {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎发现了多个结果w 尝试不要使用谐意呢（"))
+			return
+		}
+		// first read the config.
+		getLevelIndex := userSettingInterface["level_index"]
+		getSongType := userSettingInterface["song_type"]
+		var getReferIndexIsOn bool
+		if getLevelIndex != "" { // use custom diff
+			getReferIndexIsOn = true
+		}
+
+		if getBool { // lxns service.
+			getFriendID := RequestBasicDataFromLxns(getUserID)
+			if getFriendID.Data.FriendCode == 0 {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有绑定哦～ 请查看你是否在 maimai.lxns.net 上绑定了qq并且允许通过qq查看w "))
+				return
+			}
+			if !getReferIndexIsOn { // no refer then return the last one.
+				var getReport LxnsMaimaiRequestUserReferBestSong
+				switch {
+				case getSongType == "standard":
+					getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), true)
+					if getReport.Code == 404 {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
+						return
+					}
+				case getSongType == "dx":
+					getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), false)
+					if getReport.Code != 404 {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 DX 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
+						return
+					}
+				default:
+					getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), false)
+					if getReport.Code != 200 {
+						getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), true)
+					}
+				}
+
+				getReturnTypeLength := len(getReport.Data)
+				if getReturnTypeLength == 0 {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你的游玩数据呢（"))
+					return
+				}
+				// DataGet, convert To MaiPlayData Render.
+				maiRenderPieces := LxnsMaimaiRequestDataPiece{
+					Id:           getReport.Data[len(getReport.Data)-1].Id,
+					SongName:     getReport.Data[len(getReport.Data)-1].SongName,
+					Level:        getReport.Data[len(getReport.Data)-1].Level,
+					LevelIndex:   getReport.Data[len(getReport.Data)-1].LevelIndex,
+					Achievements: getReport.Data[len(getReport.Data)-1].Achievements,
+					Fc:           getReport.Data[len(getReport.Data)-1].Fc,
+					Fs:           getReport.Data[len(getReport.Data)-1].Fs,
+					DxScore:      getReport.Data[len(getReport.Data)-1].DxScore,
+					DxRating:     getReport.Data[len(getReport.Data)-1].DxRating,
+					Rate:         getReport.Data[len(getReport.Data)-1].Rate,
+					Type:         getReport.Data[len(getReport.Data)-1].Type,
+					UploadTime:   getReport.Data[len(getReport.Data)-1].UploadTime,
+				}
+				getFinalPic := ReCardRenderBase(maiRenderPieces, 0, true)
+				_ = gg.NewContextForImage(getFinalPic).SavePNG(engine.DataFolder() + "save/" + "LXNS_PIC_" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+			} else {
+				var getReport LxnsMaimaiRequestUserReferBestSongIndex
+				getLevelIndexToint, _ := strconv.ParseInt(getLevelIndex, 10, 64)
+				switch {
+				case getSongType == "standard":
+					getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, true)
+					if getReport.Code == 404 {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
+						return
+					}
+				case getSongType == "dx":
+					getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, false)
+					if getReport.Code != 404 {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 DX 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
+						return
+					}
+				default:
+					getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, false)
+					if getReport.Code != 200 {
+						getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, true)
+					}
+				}
+				if getReport.Data.SongName == "" { // nil pointer.
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你指定难度的游玩数据呢（"))
+					return
+				}
+				maiRenderPieces := LxnsMaimaiRequestDataPiece{
+					Id:           getReport.Data.Id,
+					SongName:     getReport.Data.SongName,
+					Level:        getReport.Data.Level,
+					LevelIndex:   getReport.Data.LevelIndex,
+					Achievements: getReport.Data.Achievements,
+					Fc:           getReport.Data.Fc,
+					Fs:           getReport.Data.Fs,
+					DxScore:      getReport.Data.DxScore,
+					DxRating:     getReport.Data.DxRating,
+					Rate:         getReport.Data.Rate,
+					Type:         getReport.Data.Type,
+					UploadTime:   getReport.Data.UploadTime,
+				}
+				getFinalPic := ReCardRenderBase(maiRenderPieces, 0, true)
+				_ = gg.NewContextForImage(getFinalPic).SavePNG(engine.DataFolder() + "save/" + "LXNS_PIC_" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+			}
+		} else {
+			toint := strconv.Itoa(int(ctx.Event.UserID))
+			fullDevData := QueryDevDataFromDivingFish(toint)
+			// default setting ==> dx Master | std Master | dx expert | std expert (as the highest score)
+			var ReferSongTypeList []int
+			switch {
+			case getSongType == "standard":
+				for numPosition, index := range fullDevData.Records {
+					for _, songID := range songIDList {
+						if index.Type == "SD" && index.SongId == int(songID) {
+							ReferSongTypeList = append(ReferSongTypeList, numPosition)
+						}
+					}
+
+				}
+				if len(ReferSongTypeList) == 0 {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现游玩过的 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
+					return
+				}
+			case getSongType == "dx":
+				for numPosition, index := range fullDevData.Records {
+					for _, songID := range songIDList {
+						if index.Type == "DX" && index.SongId == songID {
+							ReferSongTypeList = append(ReferSongTypeList, numPosition)
+						}
+					}
+				}
+				if len(ReferSongTypeList) == 0 {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现游玩过的 DX 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
+					return
+				}
+
+			default: // no settings.
+				for numPosition, index := range fullDevData.Records {
+					for _, songID := range songIDList {
+						if index.Type == "SD" && index.SongId == songID {
+							ReferSongTypeList = append(ReferSongTypeList, numPosition)
+						}
+					}
+					if len(ReferSongTypeList) == 0 {
+						for numPositionOn, indexOn := range fullDevData.Records {
+							for _, songID := range songIDList {
+								if indexOn.Type == "DX" && indexOn.SongId == int(songID) {
+									ReferSongTypeList = append(ReferSongTypeList, numPositionOn)
+								}
+							}
+						}
+					}
+					if len(ReferSongTypeList) == 0 {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似没有发现你玩过这首歌曲呢（"))
+						return
+					}
+				}
+
+				if !getReferIndexIsOn {
+					// index a map =>  level_index = "record_diff"
+					levelIndexMap := map[int]string{}
+					for _, dataPack := range ReferSongTypeList {
+						levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
+					}
+					var trulyReturnedData string
+					for i := 4; i >= 0; i-- {
+						if levelIndexMap[i] != "" {
+							trulyReturnedData = levelIndexMap[i]
+							break
+						}
+					}
+					getNum, _ := strconv.Atoi(trulyReturnedData)
+					// getNum ==> 0
+					returnPackage := fullDevData.Records[getNum]
+					_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+strconv.Itoa(int(songIDList[0]))+"_"+strconv.Itoa(int(getUserID))+".png"))
+				} else {
+					levelIndexMap := map[int]string{}
+					for _, dataPack := range ReferSongTypeList {
+						levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
+					}
+					getDiff, _ := strconv.Atoi(userSettingInterface["level_index"])
+
+					if levelIndexMap[getDiff] != "" {
+						getNum, _ := strconv.Atoi(levelIndexMap[getDiff])
+						returnPackage := fullDevData.Records[getNum]
+						_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+					} else {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似你没有玩过这个难度的曲子哦～"))
+					}
+				}
+			}
+		}
 	})
 
 }

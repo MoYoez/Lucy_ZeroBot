@@ -361,7 +361,7 @@ func FullPageRender(data player, ctx *zero.Ctx) (raw image.Image, stat bool) {
 	getInitY := 285
 	var i int
 	for i = 0; i < getSDLength; i++ {
-		b50Render.DrawImage(RenderCard(data.Charts.Sd[i], i+1), getInitX, getInitY)
+		b50Render.DrawImage(RenderCard(data.Charts.Sd[i], i+1, false), getInitX, getInitY)
 		getInitX += 400
 		if getInitX == 2045 {
 			getInitX = 45
@@ -369,7 +369,7 @@ func FullPageRender(data player, ctx *zero.Ctx) (raw image.Image, stat bool) {
 		}
 	}
 	for dx := 0; dx < getDXLength; dx++ {
-		b50Render.DrawImage(RenderCard(data.Charts.Dx[dx], dx+1), getDXinitX, getDXinitY)
+		b50Render.DrawImage(RenderCard(data.Charts.Dx[dx], dx+1, false), getDXinitX, getDXinitY)
 		getDXinitX += 400
 		if getDXinitX == 2045 {
 			getDXinitX = 45
@@ -380,7 +380,7 @@ func FullPageRender(data player, ctx *zero.Ctx) (raw image.Image, stat bool) {
 }
 
 // RenderCard Main Lucy Render Page
-func RenderCard(data playerData, num int) image.Image {
+func RenderCard(data playerData, num int, isSimpleRender bool) image.Image {
 	getType := data.Type
 	var CardBackGround string
 	var multiTypeRender sync.WaitGroup
@@ -455,7 +455,9 @@ func RenderCard(data playerData, num int) image.Image {
 	drawBackGround.Fill()
 	drawBackGround.SetFontFace(rankFont)
 	drawBackGround.SetColor(diffColor[data.LevelIndex])
-	drawBackGround.DrawString("#"+strconv.Itoa(num), 130, 111)
+	if !isSimpleRender {
+		drawBackGround.DrawString("#"+strconv.Itoa(num), 130, 111)
+	}
 	drawBackGround.FillPreserve()
 	// draw rest of card.
 	drawBackGround.SetFontFace(levelFont)
@@ -863,4 +865,42 @@ func ConvertRealPlayWords(retry RealConvertPlay) string {
 
 	}
 	return header + pickedWords + "\n"
+}
+
+func RequestReferSong(friendID int64, songID int64, isSD bool) LxnsMaimaiRequestUserReferBestSong {
+	var getReferType string
+	if isSD {
+		getReferType = "standard"
+	} else {
+		getReferType = "dx"
+	}
+	getData, err := web.RequestDataWithHeaders(web.NewDefaultClient(), "https://maimai.lxns.net/api/v0/maimai/player/"+strconv.FormatInt(friendID, 10)+"/bests?song_id="+strconv.FormatInt(songID, 10)+"&song_type="+getReferType, "GET", func(request *http.Request) error {
+		request.Header.Add("Authorization", os.Getenv("lxnskey"))
+		return nil
+	}, nil)
+	if err != nil {
+		return LxnsMaimaiRequestUserReferBestSong{Success: false}
+	}
+	var handlerData LxnsMaimaiRequestUserReferBestSong
+	json.Unmarshal(getData, &handlerData)
+	return handlerData
+}
+
+func RequestReferSongIndex(friendID int64, songID int64, diff int64, isSD bool) LxnsMaimaiRequestUserReferBestSongIndex {
+	var getReferType string
+	if isSD {
+		getReferType = "standard"
+	} else {
+		getReferType = "dx"
+	}
+	getData, err := web.RequestDataWithHeaders(web.NewDefaultClient(), "https://maimai.lxns.net/api/v0/maimai/player/"+strconv.FormatInt(friendID, 10)+"/bests?song_id="+strconv.FormatInt(songID, 10)+"&song_type="+getReferType+"&level_index="+strconv.FormatInt(diff, 10), "GET", func(request *http.Request) error {
+		request.Header.Add("Authorization", os.Getenv("lxnskey"))
+		return nil
+	}, nil)
+	if err != nil {
+		return LxnsMaimaiRequestUserReferBestSongIndex{Success: false}
+	}
+	var handlerData LxnsMaimaiRequestUserReferBestSongIndex
+	json.Unmarshal(getData, &handlerData)
+	return handlerData
 }

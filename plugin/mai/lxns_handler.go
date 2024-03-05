@@ -103,6 +103,44 @@ type LxnsMaimaiRequestDataPiece struct {
 	UploadTime   time.Time `json:"upload_time"`
 }
 
+type LxnsMaimaiRequestUserReferBestSong struct {
+	Success bool `json:"success"`
+	Code    int  `json:"code"`
+	Data    []struct {
+		Id           int       `json:"id"`
+		SongName     string    `json:"song_name"`
+		Level        string    `json:"level"`
+		LevelIndex   int       `json:"level_index"`
+		Achievements float64   `json:"achievements"`
+		Fc           *string   `json:"fc"`
+		Fs           *string   `json:"fs"`
+		DxScore      int       `json:"dx_score"`
+		DxRating     float64   `json:"dx_rating"`
+		Rate         string    `json:"rate"`
+		Type         string    `json:"type"`
+		UploadTime   time.Time `json:"upload_time"`
+	} `json:"data"`
+}
+
+type LxnsMaimaiRequestUserReferBestSongIndex struct {
+	Success bool `json:"success"`
+	Code    int  `json:"code"`
+	Data    struct {
+		Id           int       `json:"id"`
+		SongName     string    `json:"song_name"`
+		Level        string    `json:"level"`
+		LevelIndex   int       `json:"level_index"`
+		Achievements float64   `json:"achievements"`
+		Fc           *string   `json:"fc"`
+		Fs           *string   `json:"fs"`
+		DxScore      int       `json:"dx_score"`
+		DxRating     float64   `json:"dx_rating"`
+		Rate         string    `json:"rate"`
+		Type         string    `json:"type"`
+		UploadTime   time.Time `json:"upload_time"`
+	} `json:"data"`
+}
+
 // NOTE: lxns network maimai uses qq => friendCode
 
 // RequestBasicDataFromLxns
@@ -164,7 +202,7 @@ func RequestB50DataByFriendCode(friendCode int64) LxnsMaimaiRequestB50 {
 	return handlerData
 }
 
-func ReCardRenderBase(data LxnsMaimaiRequestDataPiece, getNum int) image.Image {
+func ReCardRenderBase(data LxnsMaimaiRequestDataPiece, getNum int, isSimpleRender bool) image.Image {
 	getType := data.Type
 	var CardBackGround string
 	var multiTypeRender sync.WaitGroup
@@ -231,7 +269,9 @@ func ReCardRenderBase(data LxnsMaimaiRequestDataPiece, getNum int) image.Image {
 	drawBackGround.Fill()
 	drawBackGround.SetFontFace(rankFont)
 	drawBackGround.SetColor(diffColor[data.LevelIndex])
-	drawBackGround.DrawString("#"+strconv.Itoa(getNum), 130, 111)
+	if !isSimpleRender {
+		drawBackGround.DrawString("#"+strconv.Itoa(getNum), 130, 111)
+	}
 	drawBackGround.FillPreserve()
 	// draw rest of card.
 	drawBackGround.SetFontFace(levelFont)
@@ -244,7 +284,7 @@ func ReCardRenderBase(data LxnsMaimaiRequestDataPiece, getNum int) image.Image {
 	drawBackGround.DrawString("▶", 235, 111)
 	drawBackGround.FillPreserve()
 	drawBackGround.SetFontFace(ratingFont)
-	drawBackGround.DrawString(strconv.Itoa(data.DxScore), 250, 111)
+	drawBackGround.DrawString(strconv.Itoa(int(data.DxRating)), 250, 111)
 	drawBackGround.FillPreserve()
 	if data.Fc != nil {
 		FcPointer := *data.Fc
@@ -400,7 +440,7 @@ func ReFullPageRender(data LxnsMaimaiRequestB50, userData LxnsMaimaiRequestFromQ
 	getInitY := 285
 	var i int
 	for i = 0; i < getSDLength; i++ {
-		b50Render.DrawImage(ReCardRenderBase(DataPiecesRepacked(data, true, i), i+1), getInitX, getInitY)
+		b50Render.DrawImage(ReCardRenderBase(DataPiecesRepacked(data, true, i), i+1, false), getInitX, getInitY)
 		getInitX += 400
 		if getInitX == 2045 {
 			getInitX = 45
@@ -409,7 +449,7 @@ func ReFullPageRender(data LxnsMaimaiRequestB50, userData LxnsMaimaiRequestFromQ
 	}
 
 	for dx := 0; dx < getDXLength; dx++ {
-		b50Render.DrawImage(ReCardRenderBase(DataPiecesRepacked(data, false, dx), dx+1), getDXinitX, getDXinitY)
+		b50Render.DrawImage(ReCardRenderBase(DataPiecesRepacked(data, false, dx), dx+1, false), getDXinitX, getDXinitY)
 		getDXinitX += 400
 		if getDXinitX == 2045 {
 			getDXinitX = 45
