@@ -127,23 +127,7 @@ func init() {
 		_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/b40_" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B40 : "+data.Username+"\n"+tipPlate), message.Image(Saved+"b40_"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
 	})
-	engine.OnRegex(`^[! ！/](mai|b50)\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
-		matched := ctx.State["regex_matched"].([]string)[2]
-		dataPlayer, err := QueryMaiBotDataFromUserName(matched)
-		if err != nil {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ERR: ", err))
-			return
-		}
-		var data player
-		_ = json.Unmarshal(dataPlayer, &data)
-		renderImg, plateStat := FullPageRender(data, ctx)
-		tipPlate := ""
-		if !plateStat {
-			tipPlate = "tips: 可以使用 ！mai plate xxx 来绑定称号~"
-		}
-		_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+data.Username+"\n"+tipPlate+"\n"), message.Image(Saved+strconv.Itoa(int(ctx.Event.UserID))+".png"))
-	})
+
 	engine.OnRegex(`^[! ！/](mai|b50)\sswitch$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getBool := GetUserSwitcherInfoFromDatabase(ctx.Event.UserID)
 		err := FormatUserSwitcher(ctx.Event.UserID, !getBool).ChangeUserSwitchInfoFromDataBase()
@@ -482,7 +466,7 @@ func init() {
 				}
 				getFinalPic := ReCardRenderBase(maiRenderPieces, 0, true)
 				_ = gg.NewContextForImage(getFinalPic).SavePNG(engine.DataFolder() + "save/" + "LXNS_PIC_" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
 			} else {
 				var getReport LxnsMaimaiRequestUserReferBestSongIndex
 				getLevelIndexToint, _ := strconv.ParseInt(getLevelIndex, 10, 64)
@@ -525,7 +509,7 @@ func init() {
 				}
 				getFinalPic := ReCardRenderBase(maiRenderPieces, 0, true)
 				_ = gg.NewContextForImage(getFinalPic).SavePNG(engine.DataFolder() + "save/" + "LXNS_PIC_" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
 			}
 		} else {
 			toint := strconv.Itoa(int(ctx.Event.UserID))
@@ -536,11 +520,24 @@ func init() {
 			case getSongType == "standard":
 				for numPosition, index := range fullDevData.Records {
 					for _, songID := range songIDList {
-						if index.Type == "SD" && index.SongId == int(songID) {
-							ReferSongTypeList = append(ReferSongTypeList, numPosition)
+						if index.SongId == songID {
+							if index.Type == "SD" {
+								ReferSongTypeList = append(ReferSongTypeList, numPosition)
+							}
 						}
 					}
-
+				}
+				if len(ReferSongTypeList) == 0 { // try with added num
+					for numPosition, index := range fullDevData.Records {
+						for _, songID := range songIDList {
+							songID = simpleNumHandler(songID)
+							if index.SongId == songID {
+								if index.Type == "SD" {
+									ReferSongTypeList = append(ReferSongTypeList, numPosition)
+								}
+							}
+						}
+					}
 				}
 				if len(ReferSongTypeList) == 0 {
 					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现游玩过的 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
@@ -555,10 +552,21 @@ func init() {
 					}
 				}
 				if len(ReferSongTypeList) == 0 {
+					for numPosition, index := range fullDevData.Records {
+						for _, songID := range songIDList {
+							songID = simpleNumHandler(songID)
+							if index.SongId == songID {
+								if index.Type == "DX" {
+									ReferSongTypeList = append(ReferSongTypeList, numPosition)
+								}
+							}
+						}
+					}
+				}
+				if len(ReferSongTypeList) == 0 {
 					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现游玩过的 DX 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
 					return
 				}
-
 			default: // no settings.
 				for numPosition, index := range fullDevData.Records {
 					for _, songID := range songIDList {
@@ -569,54 +577,95 @@ func init() {
 					if len(ReferSongTypeList) == 0 {
 						for numPositionOn, indexOn := range fullDevData.Records {
 							for _, songID := range songIDList {
-								if indexOn.Type == "DX" && indexOn.SongId == int(songID) {
+								if indexOn.Type == "DX" && indexOn.SongId == songID {
 									ReferSongTypeList = append(ReferSongTypeList, numPositionOn)
 								}
 							}
 						}
 					}
-					if len(ReferSongTypeList) == 0 {
-						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似没有发现你玩过这首歌曲呢（"))
-						return
+				}
+				if len(ReferSongTypeList) == 0 {
+					for numPosition, index := range fullDevData.Records {
+						for _, songID := range songIDList {
+							songID = simpleNumHandler(songID)
+							if index.Type == "SD" && index.SongId == songID {
+								ReferSongTypeList = append(ReferSongTypeList, numPosition)
+							}
+						}
+						if len(ReferSongTypeList) == 0 {
+							for numPositionOn, indexOn := range fullDevData.Records {
+								for _, songID := range songIDList {
+									songID = simpleNumHandler(songID)
+									if indexOn.Type == "DX" && indexOn.SongId == songID {
+										ReferSongTypeList = append(ReferSongTypeList, numPositionOn)
+									}
+								}
+							}
+						}
 					}
 				}
 
-				if !getReferIndexIsOn {
-					// index a map =>  level_index = "record_diff"
-					levelIndexMap := map[int]string{}
-					for _, dataPack := range ReferSongTypeList {
-						levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
+				if len(ReferSongTypeList) == 0 {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似没有发现你玩过这首歌曲呢（"))
+					return
+				}
+			}
+
+			if !getReferIndexIsOn {
+				// index a map =>  level_index = "record_diff"
+				levelIndexMap := map[int]string{}
+				for _, dataPack := range ReferSongTypeList {
+					levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
+				}
+				var trulyReturnedData string
+				for i := 4; i >= 0; i-- {
+					if levelIndexMap[i] != "" {
+						trulyReturnedData = levelIndexMap[i]
+						break
 					}
-					var trulyReturnedData string
-					for i := 4; i >= 0; i-- {
-						if levelIndexMap[i] != "" {
-							trulyReturnedData = levelIndexMap[i]
-							break
-						}
-					}
-					getNum, _ := strconv.Atoi(trulyReturnedData)
-					// getNum ==> 0
+				}
+				getNum, _ := strconv.Atoi(trulyReturnedData)
+				// getNum ==> 0
+				returnPackage := fullDevData.Records[getNum]
+				_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+strconv.Itoa(int(songIDList[0]))+"_"+strconv.Itoa(int(getUserID))+".png"))
+			} else {
+				levelIndexMap := map[int]string{}
+				for _, dataPack := range ReferSongTypeList {
+					levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
+				}
+				getDiff, _ := strconv.Atoi(userSettingInterface["level_index"])
+				if levelIndexMap[getDiff] != "" {
+					getNum, _ := strconv.Atoi(levelIndexMap[getDiff])
 					returnPackage := fullDevData.Records[getNum]
 					_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+strconv.Itoa(int(songIDList[0]))+"_"+strconv.Itoa(int(getUserID))+".png"))
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
 				} else {
-					levelIndexMap := map[int]string{}
-					for _, dataPack := range ReferSongTypeList {
-						levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
-					}
-					getDiff, _ := strconv.Atoi(userSettingInterface["level_index"])
-
-					if levelIndexMap[getDiff] != "" {
-						getNum, _ := strconv.Atoi(levelIndexMap[getDiff])
-						returnPackage := fullDevData.Records[getNum]
-						_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(engine.DataFolder()+"save/"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
-					} else {
-						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似你没有玩过这个难度的曲子哦～"))
-					}
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似你没有玩过这个难度的曲子哦～"))
 				}
 			}
 		}
-	})
 
+	})
+	engine.OnRegex(`^[! ！/](mai|b50)\saliasupdate$`, zero.SuperUserPermission).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		UpdateAliasPackage()
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("成功～"))
+	})
+	engine.OnRegex(`^[! ！/](mai|b50)\srefer\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
+		matched := ctx.State["regex_matched"].([]string)[2]
+		dataPlayer, err := QueryMaiBotDataFromUserName(matched)
+		if err != nil {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ERR: ", err))
+			return
+		}
+		var data player
+		_ = json.Unmarshal(dataPlayer, &data)
+		renderImg, plateStat := FullPageRender(data, ctx)
+		tipPlate := ""
+		if !plateStat {
+			tipPlate = "tips: 可以使用 ！mai plate xxx 来绑定称号~"
+		}
+		_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B50 : "+data.Username+"\n"+tipPlate+"\n"), message.Image(Saved+strconv.Itoa(int(ctx.Event.UserID))+".png"))
+	})
 }
