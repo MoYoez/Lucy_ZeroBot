@@ -245,7 +245,7 @@ func init() {
 		if err != nil {
 			return
 		}
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getCodeStat))
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(string(getCodeStat)))
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\stokenbind\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getDefaultInfo := ctx.State["regex_matched"].([]string)[2]
