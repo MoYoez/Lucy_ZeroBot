@@ -3,6 +3,7 @@ package mai
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/FloatTech/ZeroBot-Plugin/compounds/toolchain"
 	"image"
 	rand2 "math/rand"
@@ -17,10 +18,8 @@ import (
 	ctrl "github.com/FloatTech/zbpctrl"
 	"github.com/FloatTech/zbputils/control"
 	"github.com/FloatTech/zbputils/img/text"
-	"github.com/tidwall/gjson"
 	zero "github.com/wdvxdr1123/ZeroBot"
 	"github.com/wdvxdr1123/ZeroBot/message"
-	"github.com/wdvxdr1123/ZeroBot/utils/helper"
 )
 
 var (
@@ -127,7 +126,6 @@ func init() {
 		_ = gg.NewContextForImage(renderImg).SavePNG(engine.DataFolder() + "save/b40_" + strconv.Itoa(int(ctx.Event.UserID)) + ".png")
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Render User B40 : "+data.Username+"\n"+tipPlate), message.Image(Saved+"b40_"+strconv.Itoa(int(ctx.Event.UserID))+".png"))
 	})
-
 	engine.OnRegex(`^[! ！/](mai|b50)\sswitch$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getBool := GetUserSwitcherInfoFromDatabase(ctx.Event.UserID)
 		err := FormatUserSwitcher(ctx.Event.UserID, !getBool).ChangeUserSwitchInfoFromDataBase()
@@ -243,22 +241,11 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://mai.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
-		getCodeRaw, err := strconv.ParseInt(getMaiID.Userid, 10, 64)
+		getCodeStat, err := web.GetData("https://maihook.lemonkoi.one/api/idunlocker?userid=" + getMaiID.Userid)
 		if err != nil {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Wahlap ServerERR: "+err.Error()))
 			return
 		}
-		getCodeStat := Logout(getCodeRaw)
-		if strings.Contains(getCodeStat, "{") == false {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getCodeStat))
-			return
-		}
-		getCode := gjson.Get(getCodeStat, "returnCode").Int()
-		if getCode == 1 {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信成功，服务器返回正常, 如果未生效请重新尝试"))
-		} else {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("发信成功，但是服务器返回代码异常。"))
-		}
+		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text(getCodeStat))
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\stokenbind\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getDefaultInfo := ctx.State["regex_matched"].([]string)[2]
@@ -281,42 +268,39 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("此 Token 不合法 ，请重新绑定"))
 			return
 		}
-		// token is valid, get data.
-		getIntID, _ := strconv.ParseInt(getMaiID.Userid, 10, 64)
-		getFullData := GetMusicList(getIntID, 0, 5000)
-		if strings.Contains(getFullData, "{") == false {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getFullData))
-			return
-		}
-		var jsonMashell UserMusicListStruct
-		err := json.Unmarshal(helper.StringToBytes(getFullData), &jsonMashell)
+		getData, err := web.RequestDataWithHeaders(http.DefaultClient, "https://maihook.lemonkoi.one/api/getMusicList?userid="+getMaiID.Userid+"&index=0", "GET", func(request *http.Request) error {
+			request.Header.Set("valid", os.Getenv("validauth"))
+			return nil
+		}, nil)
 		if err != nil {
 			panic(err)
 		}
-		getFullDataStruct := convert(jsonMashell)
-		jsonDumper := getFullDataStruct
-		jsonDumperFull, err := json.Marshal(jsonDumper)
-		if err != nil {
-			panic(err)
+		// update by path.
+		var unmashellData UserMusicListStruct
+		json.Unmarshal(getData, &unmashellData)
+		resp := UpdateHandler(unmashellData, getTokenId)
+		if unmashellData.NextIndex != 0 {
+			for i := unmashellData.NextIndex; i > 0; {
+				var unmashellDataS UserMusicListStruct
+				iStr := strconv.Itoa(i)
+				getDataS, err := web.RequestDataWithHeaders(http.DefaultClient, "https://maihook.lemonkoi.one/api/getMusicList?userid="+getMaiID.Userid+"&index="+iStr, "GET", func(request *http.Request) error {
+					request.Header.Set("valid", os.Getenv("validauth"))
+					return nil
+				}, nil)
+				if err != nil {
+					panic(err)
+				}
+				json.Unmarshal(getDataS, &unmashellDataS)
+				UpdateHandler(unmashellDataS, getTokenId)
+				i = unmashellDataS.NextIndex
+			}
 		}
-		// upload to diving fish api
-		req, err := http.NewRequest("POST", "https://www.diving-fish.com/api/maimaidxprober/player/update_records", bytes.NewBuffer(jsonDumperFull))
-		if err != nil {
-			// Handle error
-			panic(err)
+		if resp == 200 || resp == 500 {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("上传成功了哦~ QWQ"))
+		} else {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似出现了一点点问题, 要不重新试试(?"))
 		}
-		req.Header.Set("Import-Token", getTokenId)
-		req.Header.Set("Content-Type", "application/json")
-		client := &http.Client{}
-		resp, err := client.Do(req)
-		if err != nil {
-			panic(err)
-		}
-		//	NewReader, err := io.ReadAll(resp.Body)
-		if err != nil {
-			panic(err)
-		}
-		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Update CODE:"+strconv.Itoa(resp.StatusCode)))
+
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\sregion$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
 		getID := ctx.Event.UserID
@@ -325,17 +309,16 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://mai.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
-		getCodeRaw, err := strconv.ParseInt(getMaiID.Userid, 10, 64)
-		if err != nil {
-			panic(err)
-		}
-		getReplyMsg := GetUserRegion(getCodeRaw)
-		if strings.Contains(getReplyMsg, "{") == false {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+getReplyMsg))
+		getReplyMsg, _ := web.RequestDataWithHeaders(http.DefaultClient, "https://maihook.lemonkoi.one/api/getRegion?userid="+getMaiID.Userid, "GET", func(request *http.Request) error {
+			request.Header.Set("valid", os.Getenv("validauth"))
+			return nil
+		}, nil)
+		if strings.Contains(string(getReplyMsg), "{") == false {
+			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("返回了错误.png, ERROR:"+string(getReplyMsg)))
 			return
 		}
 		var MixedMagic GetUserRegionStruct
-		json.Unmarshal(helper.StringToBytes(getReplyMsg), &MixedMagic)
+		json.Unmarshal(getReplyMsg, &MixedMagic)
 		var returnText string
 		for _, onlistLoader := range MixedMagic.UserRegionList {
 			returnText = returnText + MixedRegionWriter(onlistLoader.RegionId-1, onlistLoader.PlayCount, onlistLoader.Created) + "\n\n"
@@ -367,7 +350,6 @@ func init() {
 
 		getZlibWord := "Zlib 压缩跳过率: \n" + "10mins (" + ConvertZlib(getZlibError.ZlibError.Field1, getZlibError.Full.Field1) + " Loss)\n" + "30mins (" + ConvertZlib(getZlibError.ZlibError.Field2, getZlibError.Full.Field2) + " Loss)\n" + "60mins (" + ConvertZlib(getZlibError.ZlibError.Field3, getZlibError.Full.Field3) + " Loss)\n"
 		getRealStatus := "\n以下数据来源于mai机台的数据反馈\n"
-		//	getWebStatusCount := "Web Uptime Ping:\n * MaimaiDXCN: " + ConvertFloat(getWebStatus.Details.MaimaiDXCN.Uptime*100) + "%\n * MaimaiDXCN Main Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNMain.Uptime*100) + "%\n * MaimaiDXCN Title Server: " + ConvertFloat(float64(getWebStatus.Details.MaimaiDXCNTitle.Uptime*100)) + "%\n * MaimaiDXCN Update Server: " + ConvertFloat(float64(getWebStatus.Details.MaimaiDXCNUpdate.Uptime*100)) + "%\n * MaimaiDXCN NetLogin Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNNetLogin.Uptime*100) + "%\n * MaimaiDXCN Net Server: " + ConvertFloat(getWebStatus.Details.MaimaiDXCNDXNet.Uptime*100) + "%\n"
 		ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("* Zlib 压缩跳过率可以很好的反馈当前 MaiNet (Wahlap Service) 当前负载的情况，根据样本 + Lucy处理情况 来判断 \n* 错误率收集则来源于 机台游玩数据，反应各地区真实mai游玩错误情况 \n* 在 1小时 内，Lucy 共处理了 "+getLucyRespHandlerStr+"次 请求💫，其中详细数据如下:\n\n"+getZlibWord+getRealStatus+"\n"+ConvertRealPlayWords(playerStatus)+"\n* Zlib 3% Loss 以下则 基本上可以正常游玩\n* 10% Loss 则会有明显断网现象(请准备小黑屋工具)\n* 30% Loss 则无法正常游玩(即使使用小黑屋工具) "))
 	})
 	engine.OnRegex(`^[! ！/](mai|b50)\squery\s(.*)$`).SetBlock(true).Handle(func(ctx *zero.Ctx) {
@@ -396,25 +378,70 @@ func init() {
 			// no other infos. || default setting ==> dx Master | std Master | dx expert | std expert (as the highest score)
 			settedSongAlias = getSplitInfo[0]
 		}
-		// get SongID, render.
 		getUserID := ctx.Event.UserID
 		getBool := GetUserSwitcherInfoFromDatabase(getUserID)
-		queryStatus, songIDList, accStat := QueryReferSong(settedSongAlias, getBool)
-		if queryStatus == false {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("未找到对应歌曲，可能是数据库未收录（"))
-			return
-		}
-		if accStat {
-			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎发现了多个结果w 尝试不要使用谐意呢（"))
-			return
-		}
+		// checker id | song
+		var isIDChecker bool
+		var songIDList []int
 		// first read the config.
 		getLevelIndex := userSettingInterface["level_index"]
 		getSongType := userSettingInterface["song_type"]
 		var getReferIndexIsOn bool
+		var accStat bool
 		if getLevelIndex != "" { // use custom diff
 			getReferIndexIsOn = true
 		}
+		switch {
+		case strings.HasPrefix(settedSongAlias, "id") == true:
+			// useID checker.
+			isIDChecker = true
+			getParse, err := strconv.ParseInt(strings.Replace(settedSongAlias, "id", "", 1), 10, 64)
+			if err != nil {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("ID 查找参数非法"))
+				return
+			}
+			songIDList = []int{int(getParse)}
+		default:
+			isIDChecker = false
+			queryStatus, songIDLists, accStats, returnListHere := QueryReferSong(settedSongAlias, getBool)
+			songIDList = songIDLists
+			accStat = accStats
+			if queryStatus == false {
+				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("未找到对应歌曲，可能是数据库未收录（"))
+				return
+			}
+			if accStat {
+				// Handler Which Song user played.
+				var FullList []int
+				for _, list := range returnListHere {
+					for _, listInsider := range list {
+						FullList = append(FullList, listInsider)
+					}
+				}
+
+				FullList = removeIntDuplicates(FullList)
+				// make both song Handler, check this song is from sd | DX pattern.
+				var sampleListShown []int
+				// sometimes list maybe contain dx | SD, but they are same song.
+				if len(FullList) == 2 {
+					for _, listSample := range FullList {
+						sampleListShown = append(sampleListShown, simpleNumHandler(listSample, false)) //  convert to DX pattern.
+					}
+					sampleListShown = removeIntDuplicates(sampleListShown)
+				}
+
+				if len(sampleListShown) == 1 {
+					songIDList = []int{simpleNumHandler(songIDList[0], false)}
+				} else {
+					// varies handler machine,means it has songs.
+					// query them.
+					songIDList = FullList
+				}
+
+			}
+		}
+
+		// get SongID, render.
 
 		if getBool { // lxns service.
 			getFriendID := RequestBasicDataFromLxns(getUserID)
@@ -426,27 +453,54 @@ func init() {
 				var getReport LxnsMaimaiRequestUserReferBestSong
 				switch {
 				case getSongType == "standard":
-					getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), true)
-					if getReport.Code == 404 {
+					for _, songIdInt := range songIDList {
+						getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIdInt), true)
+						if getReport.Code == 200 && len(getReport.Data) != 0 {
+							break
+						}
+					}
+					if len(getReport.Data) == 0 {
 						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
 						return
 					}
 				case getSongType == "dx":
-					getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), false)
-					if getReport.Code != 404 {
+					for _, songIdInt := range songIDList {
+						getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIdInt), false)
+						if getReport.Code == 200 && len(getReport.Data) != 0 {
+							break
+						}
+					}
+					if len(getReport.Data) == 0 {
 						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 DX 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
 						return
 					}
+
 				default:
-					getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), false)
+					for _, songIdInt := range songIDList {
+						getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIdInt), false)
+						fmt.Print(getReport.Code)
+						if getReport.Code == 200 && len(getReport.Data) != 0 {
+							break
+						}
+
+					}
+
 					if getReport.Code != 200 {
-						getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIDList[0]), true)
+						for _, songIdInt := range songIDList {
+							getReport = RequestReferSong(getFriendID.Data.FriendCode, int64(songIdInt), true)
+							if getReport.Code == 200 && len(getReport.Data) != 0 {
+								break
+							}
+						}
 					}
 				}
-
 				getReturnTypeLength := len(getReport.Data)
 				if getReturnTypeLength == 0 {
-					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你的游玩数据呢（"))
+					if !isIDChecker {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你的游玩数据呢（"))
+					} else {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查找了对应ID 但是没有发现数据～"))
+					}
 					return
 				}
 				// DataGet, convert To MaiPlayData Render.
@@ -466,32 +520,60 @@ func init() {
 				}
 				getFinalPic := ReCardRenderBase(maiRenderPieces, 0, true)
 				_ = gg.NewContextForImage(getFinalPic).SavePNG(engine.DataFolder() + "save/" + "LXNS_PIC_" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+				if accStat {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查询到多个别名，此处默认为您返回了 "+getReport.Data[0].SongName+"谱面"), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+				} else {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+				}
+
 			} else {
 				var getReport LxnsMaimaiRequestUserReferBestSongIndex
 				getLevelIndexToint, _ := strconv.ParseInt(getLevelIndex, 10, 64)
 				switch {
 				case getSongType == "standard":
-					getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, true)
+					for _, p := range songIDList {
+						getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(p), getLevelIndexToint, true)
+						if getReport.Code == 200 && getReport.Data.SongName != "" {
+							break
+						}
+					}
 					if getReport.Code == 404 {
 						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
 						return
 					}
 				case getSongType == "dx":
-					getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, false)
-					if getReport.Code != 404 {
+					for _, p := range songIDList {
+						getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(p), getLevelIndexToint, false)
+						if getReport.Code == 200 && getReport.Data.SongName != "" {
+							break
+						}
+					}
+					if getReport.Code == 404 {
 						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现 DX 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
 						return
 					}
 				default:
-					getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, false)
+					for _, p := range songIDList {
+						getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(p), getLevelIndexToint, false)
+						if getReport.Code == 200 && getReport.Data.SongName != "" {
+							break
+						}
+					}
 					if getReport.Code != 200 {
-						getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(songIDList[0]), getLevelIndexToint, true)
+						for _, p := range songIDList {
+							getReport = RequestReferSongIndex(getFriendID.Data.FriendCode, int64(p), getLevelIndexToint, true)
+							if getReport.Code == 200 && getReport.Data.SongName != "" {
+								break
+							}
+						}
 					}
 				}
 				if getReport.Data.SongName == "" { // nil pointer.
-					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你指定难度的游玩数据呢（"))
-					return
+					if !isIDChecker {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你的游玩数据呢（"))
+					} else {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查找了对应ID 但是没有发现数据～"))
+					}
 				}
 				maiRenderPieces := LxnsMaimaiRequestDataPiece{
 					Id:           getReport.Data.Id,
@@ -509,58 +591,53 @@ func init() {
 				}
 				getFinalPic := ReCardRenderBase(maiRenderPieces, 0, true)
 				_ = gg.NewContextForImage(getFinalPic).SavePNG(engine.DataFolder() + "save/" + "LXNS_PIC_" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+				if accStat {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查询到多个别名，此处默认为您返回了 "+getReport.Data.SongName+"谱面"), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+
+				} else {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+"LXNS_PIC_"+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+
+				}
 			}
 		} else {
+			// DivingFish Checker
 			toint := strconv.Itoa(int(ctx.Event.UserID))
 			fullDevData := QueryDevDataFromDivingFish(toint)
 			// default setting ==> dx Master | std Master | dx expert | std expert (as the highest score)
 			var ReferSongTypeList []int
 			switch {
 			case getSongType == "standard":
-				for numPosition, index := range fullDevData.Records {
-					for _, songID := range songIDList {
-						if index.SongId == songID {
-							if index.Type == "SD" {
-								ReferSongTypeList = append(ReferSongTypeList, numPosition)
-							}
-						}
+				// roll songIDList first.
+				for _, songID := range songIDList {
+					if !isIDChecker {
+						songID = simpleNumHandler(songID, false)
 					}
-				}
-				if len(ReferSongTypeList) == 0 { // try with added num
 					for numPosition, index := range fullDevData.Records {
-						for _, songID := range songIDList {
-							songID = simpleNumHandler(songID)
-							if index.SongId == songID {
-								if index.Type == "SD" {
-									ReferSongTypeList = append(ReferSongTypeList, numPosition)
-								}
-							}
+						if index.SongId == songID && index.Type == "SD" {
+							ReferSongTypeList = append(ReferSongTypeList, numPosition)
 						}
 					}
+					if len(ReferSongTypeList) != 0 {
+						break
+					}
+
 				}
 				if len(ReferSongTypeList) == 0 {
 					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("没有发现游玩过的 SD 谱面～ 如不确定可以忽略请求参数, Lucy会自动识别"))
 					return
 				}
 			case getSongType == "dx":
-				for numPosition, index := range fullDevData.Records {
-					for _, songID := range songIDList {
-						if index.Type == "DX" && index.SongId == songID {
+				for _, songID := range songIDList {
+					if !isIDChecker {
+						songID = simpleNumHandler(songID, true)
+					}
+					for numPosition, index := range fullDevData.Records {
+						if index.SongId == songID && index.Type == "DX" {
 							ReferSongTypeList = append(ReferSongTypeList, numPosition)
 						}
 					}
-				}
-				if len(ReferSongTypeList) == 0 {
-					for numPosition, index := range fullDevData.Records {
-						for _, songID := range songIDList {
-							songID = simpleNumHandler(songID)
-							if index.SongId == songID {
-								if index.Type == "DX" {
-									ReferSongTypeList = append(ReferSongTypeList, numPosition)
-								}
-							}
-						}
+					if len(ReferSongTypeList) != 0 {
+						break
 					}
 				}
 				if len(ReferSongTypeList) == 0 {
@@ -568,45 +645,40 @@ func init() {
 					return
 				}
 			default: // no settings.
-				for numPosition, index := range fullDevData.Records {
-					for _, songID := range songIDList {
-						if index.Type == "SD" && index.SongId == songID {
+				for _, songID := range songIDList {
+					if !isIDChecker {
+						songID = simpleNumHandler(songID, true)
+					}
+					for numPosition, index := range fullDevData.Records {
+						if index.SongId == songID && index.Type == "DX" {
 							ReferSongTypeList = append(ReferSongTypeList, numPosition)
 						}
 					}
-					if len(ReferSongTypeList) == 0 {
-						for numPositionOn, indexOn := range fullDevData.Records {
-							for _, songID := range songIDList {
-								if indexOn.Type == "DX" && indexOn.SongId == songID {
-									ReferSongTypeList = append(ReferSongTypeList, numPositionOn)
-								}
-							}
-						}
+					if len(ReferSongTypeList) != 0 {
+						break
 					}
 				}
 				if len(ReferSongTypeList) == 0 {
-					for numPosition, index := range fullDevData.Records {
-						for _, songID := range songIDList {
-							songID = simpleNumHandler(songID)
-							if index.Type == "SD" && index.SongId == songID {
+					for _, songID := range songIDList {
+						if !isIDChecker {
+							songID = simpleNumHandler(songID, false)
+						}
+						for numPosition, index := range fullDevData.Records {
+							if index.SongId == songID && index.Type == "SD" {
 								ReferSongTypeList = append(ReferSongTypeList, numPosition)
 							}
 						}
-						if len(ReferSongTypeList) == 0 {
-							for numPositionOn, indexOn := range fullDevData.Records {
-								for _, songID := range songIDList {
-									songID = simpleNumHandler(songID)
-									if indexOn.Type == "DX" && indexOn.SongId == songID {
-										ReferSongTypeList = append(ReferSongTypeList, numPositionOn)
-									}
-								}
-							}
+						if len(ReferSongTypeList) != 0 {
+							break
 						}
 					}
 				}
-
 				if len(ReferSongTypeList) == 0 {
-					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似没有发现你玩过这首歌曲呢（"))
+					if !isIDChecker {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 似乎没有查询到你的游玩数据呢（"))
+					} else {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查找了对应ID 但是没有发现数据～"))
+					}
 					return
 				}
 			}
@@ -618,7 +690,7 @@ func init() {
 					levelIndexMap[fullDevData.Records[dataPack].LevelIndex] = strconv.Itoa(dataPack)
 				}
 				var trulyReturnedData string
-				for i := 4; i >= 0; i-- {
+				for i := 4; i >= 0; i-- { // divingfish is reverse.
 					if levelIndexMap[i] != "" {
 						trulyReturnedData = levelIndexMap[i]
 						break
@@ -628,7 +700,12 @@ func init() {
 				// getNum ==> 0
 				returnPackage := fullDevData.Records[getNum]
 				_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-				ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+strconv.Itoa(int(songIDList[0]))+"_"+strconv.Itoa(int(getUserID))+".png"))
+				if accStat {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查询到多个别名，此处默认为您返回了 "+returnPackage.Title+" 谱面"), message.Image(Saved+strconv.Itoa(int(songIDList[0]))+"_"+strconv.Itoa(int(getUserID))+".png"))
+				} else {
+					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+strconv.Itoa(int(songIDList[0]))+"_"+strconv.Itoa(int(getUserID))+".png"))
+
+				}
 			} else {
 				levelIndexMap := map[int]string{}
 				for _, dataPack := range ReferSongTypeList {
@@ -639,9 +716,19 @@ func init() {
 					getNum, _ := strconv.Atoi(levelIndexMap[getDiff])
 					returnPackage := fullDevData.Records[getNum]
 					_ = gg.NewContextForImage(RenderCard(returnPackage, 0, true)).SavePNG(engine.DataFolder() + "save/" + strconv.Itoa(songIDList[0]) + "_" + strconv.Itoa(int(getUserID)) + ".png")
-					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+					if accStat {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查询到多个别名，此处默认为您返回了 "+returnPackage.Title+" 谱面"), message.Image(Saved+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+
+					} else {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Image(Saved+strconv.Itoa(songIDList[0])+"_"+strconv.Itoa(int(getUserID))+".png"))
+
+					}
 				} else {
-					ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("貌似你没有玩过这个难度的曲子哦～"))
+					if !isIDChecker {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 貌似你没有玩过这个难度的曲子哦～"))
+					} else {
+						ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("Lucy 查找了对应ID 在这个难度下没有发现数据～"))
+					}
 				}
 			}
 		}

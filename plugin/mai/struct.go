@@ -1,6 +1,7 @@
 package mai
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -689,7 +690,7 @@ func CheckTheTicketIsValid(ticket string) bool {
 }
 
 func convert(listStruct UserMusicListStruct) []InnerStructChanger {
-	getRequest, err := os.ReadFile(engine.DataFolder() + "music_data")
+	getRequest, err := web.GetData("https://www.diving-fish.com/api/maimaidxprober/music_data")
 	if err != nil {
 		panic(err)
 	}
@@ -789,46 +790,12 @@ func ReturnZlibError() ZlibErrorStatus {
 	return returnData
 }
 
-// ReturnWebStatus Get Web Uptime Status.
-func ReturnWebStatus() WebPingStauts {
-	url := "https://maihook.lemonkoi.one/api/ping"
-	method := "GET"
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
-
-	if err != nil {
-		fmt.Println(err)
-		return WebPingStauts{}
-	}
-	req.Header.Add("Accept", "*/*")
-	req.Header.Add("Host", "maihook.lemonkoi.one")
-	req.Header.Add("Connection", "keep-alive")
-	res, err := client.Do(req)
-	if err != nil {
-		fmt.Println(err)
-		return WebPingStauts{}
-	}
-	defer res.Body.Close()
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		fmt.Println(err)
-		return WebPingStauts{}
-	}
-	var returnData WebPingStauts
-	json.Unmarshal(body, &returnData)
-	return returnData
-}
-
 func ConvertZlib(value, total int) string {
 	if total == 0 {
 		return "0.000%"
 	}
 	percentage := float64(value) / float64(total) * 100
 	return fmt.Sprintf("%.3f%%", percentage)
-}
-
-func ConvertFloat(data float64) string {
-	return strconv.FormatFloat(data, 'f', 3, 64)
 }
 
 func ConvertRealPlayWords(retry RealConvertPlay) string {
@@ -905,14 +872,48 @@ func RequestReferSongIndex(friendID int64, songID int64, diff int64, isSD bool) 
 	return handlerData
 }
 
-func simpleNumHandler(num int) int {
-	if num < 1000 && num > 100 {
-		toint, _ := strconv.Atoi(fmt.Sprintf("10%d", num))
-		return toint
-	}
-	if num > 1000 && num < 10000 {
-		toint, _ := strconv.Atoi(fmt.Sprintf("1%d", num))
+func simpleNumHandler(num int, upper bool) int {
+	if upper {
+		if num < 1000 && num > 100 {
+			toint, _ := strconv.Atoi(fmt.Sprintf("10%d", num))
+			return toint
+		}
+		if num > 1000 && num < 10000 {
+			toint, _ := strconv.Atoi(fmt.Sprintf("1%d", num))
+			return toint
+		}
+	} else {
+		getFmt := fmt.Sprintf("%d", num)
+		getFmt = getFmt[2:]
+		toint, _ := strconv.Atoi(getFmt)
 		return toint
 	}
 	return num
+}
+
+// UpdateHandler Update handler
+func UpdateHandler(userMusicList UserMusicListStruct, getTokenId string) int {
+	getFullDataStruct := convert(userMusicList)
+	jsonDumper := getFullDataStruct
+	jsonDumperFull, err := json.Marshal(jsonDumper)
+	if err != nil {
+		panic(err)
+	}
+	// upload to diving fish api
+	req, err := http.NewRequest("POST", "https://www.diving-fish.com/api/maimaidxprober/player/update_records", bytes.NewBuffer(jsonDumperFull))
+	if err != nil {
+		// Handle error
+		panic(err)
+	}
+	req.Header.Set("Import-Token", getTokenId)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	if err != nil {
+		panic(err)
+	}
+	return resp.StatusCode
 }

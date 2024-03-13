@@ -79,7 +79,6 @@ func init() {
 	}
 	// 通过代码写死的方式添加主人账号
 	sus = append(sus, 1292581422)
-
 	config.W = []*driver.WSClient{driver.NewWebSocketClient(*url, *token)}
 	config.Z = zero.Config{
 		NickName:       append([]string{*adana}, "Lucy", "lucy", "Lucy酱"),

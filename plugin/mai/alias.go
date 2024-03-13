@@ -18,7 +18,7 @@ type AliasesReturnValue struct {
 // only support LXNS because => if DivingFish then need Token.
 
 // QueryReferSong use LocalStorageData.
-func QueryReferSong(Alias string, isLxnet bool) (status bool, id []int, needAcc bool) {
+func QueryReferSong(Alias string, isLxnet bool) (status bool, id []int, needAcc bool, accInfoList [][]int) {
 	// unpackedData
 	getData, err := os.ReadFile(engine.DataFolder() + "alias.json")
 	if err != nil {
@@ -40,11 +40,11 @@ func QueryReferSong(Alias string, isLxnet bool) (status bool, id []int, needAcc 
 		if isLxnet {
 			for _, listhere := range onloadList[0] {
 				if listhere < 10000 {
-					return true, []int{listhere}, false
+					return true, []int{listhere}, false, nil
 				}
 			}
 		} else {
-			return true, onloadList[0], false
+			return true, onloadList[0], false, nil
 		}
 	// query length is 2,it means this maybe same name but diff id ==> (E.G: Oshama Scramble!)
 	case len(onloadList) == 2:
@@ -59,22 +59,22 @@ func QueryReferSong(Alias string, isLxnet bool) (status bool, id []int, needAcc 
 					if isLxnet {
 						for _, listhere := range returnIntList {
 							if listhere < 10000 {
-								return true, []int{listhere}, false
+								return true, []int{listhere}, false, nil
 							}
 						}
 					} else {
-						return true, returnIntList, false
+						return true, returnIntList, false, nil
 					}
 				}
 			}
 		}
 		// if query is none, means it need moreacc
-		return true, nil, true
+		return true, nil, true, onloadList
 	case len(onloadList) >= 3:
-		return true, nil, true
+		return true, nil, true, onloadList
 	}
 	// no found.
-	return false, nil, false
+	return false, nil, false, nil
 }
 
 // UpdateAliasPackage Use simple action to update alias.
