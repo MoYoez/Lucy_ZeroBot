@@ -241,7 +241,10 @@ func init() {
 			ctx.SendChain(message.Reply(ctx.Event.MessageID), message.Text("请前往 https://mai.lemonkoi.one 获取绑定码进行绑定"))
 			return
 		}
-		getCodeStat, err := web.GetData("https://maihook.lemonkoi.one/api/idunlocker?userid=" + getMaiID.Userid)
+		getCodeStat, err := web.RequestDataWithHeaders(http.DefaultClient, "https://maihook.lemonkoi.one/api/idunlocker?userid="+getMaiID.Userid, "GET", func(request *http.Request) error {
+			request.Header.Set("valid", os.Getenv("validauth"))
+			return nil
+		}, nil)
 		if err != nil {
 			return
 		}
